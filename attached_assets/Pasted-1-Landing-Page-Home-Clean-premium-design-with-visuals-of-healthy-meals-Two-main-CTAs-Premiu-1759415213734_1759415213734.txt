@@ -1,0 +1,101 @@
+1. Landing Page (Home)
+
+Clean, premium design with visuals of healthy meals.
+
+Two main CTAs:
+
+Premium Clinical Plan
+
+AI-Assisted Plan
+
+Short tagline: “Your body, your meals — crafted for you.”
+
+Social proof (testimonials, trust badges).
+
+2. Premium Clinical Plan (Path 1)
+
+Page explaining step-by-step:
+
+Consultation with physician (online/offline).
+
+At-home test collection (blood sample, body fat, etc.).
+
+Detailed report generation.
+
+Feasibility discussion with consultant.
+
+Nutritionist creates diet chart.
+
+Chef-prepared personalized meals delivered.
+
+Pricing explained as premium subscription.
+
+CTA: “Book Your First Consultation” (integrates with scheduling system).
+
+3. AI-Assisted Plan (Path 2)
+
+Interactive Q&A Form (quiz-style) similar to BetterMe.
+
+Example questions:
+
+Age, gender, activity level.
+
+Dietary preferences (veg, vegan, keto, etc.).
+
+Allergies.
+
+Fitness goals (weight loss, muscle gain, maintenance).
+
+Backend: AI generates a suggested meal plan + dynamic pricing.
+
+CTA: “Start Subscription Now” (connects to payment).
+
+4. Meal Plan Preview
+
+For both plans:
+
+Show sample weekly meal schedule.
+
+Display nutritional info (calories, protein, carbs, fats).
+
+Option to customize (swap meals).
+
+5. Checkout / Payment
+
+Subscription model:
+
+Weekly / Monthly / Quarterly.
+
+Flexible cancellation policy.
+
+Multiple payment options (UPI, card, wallet, etc.).
+
+6. User Dashboard (Post-Signup)
+
+Personalized meal plan display.
+
+Delivery schedule tracking.
+
+Option to update preferences (via AI for instant update).
+
+Chat support (nutritionist or AI bot).
+
+7. Admin Backend
+
+Customer management.
+
+Meal scheduling + delivery logistics.
+
+Integration with clinic (for premium customers).
+
+AI engine for meal plan generation.
+
+👉 This flow can be built end-to-end in Replit using:
+
+Frontend: React + Tailwind (for quiz UI and landing pages).
+
+Backend: FastAPI / Flask (AI plan generation, user accounts).
+
+Database: PostgreSQL (user profiles, meal data).
+
+AI: GPT / fine-tuned model for meal generation.
