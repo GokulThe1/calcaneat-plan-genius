@@ -1,6 +1,7 @@
 import { Header } from '@/components/Header';
 import { Footer } from '@/components/Footer';
 import { ProcessSteps } from '@/components/ProcessSteps';
+import { BookingCalendar } from '@/components/BookingCalendar';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -104,6 +105,14 @@ export default function ClinicalPlan() {
                   </div>
                 </CardContent>
               </Card>
+            </div>
+          </div>
+        </section>
+
+        <section className="py-16 md:py-20 lg:py-24 bg-muted/30">
+          <div className="container mx-auto px-4 md:px-6">
+            <div className="max-w-2xl mx-auto">
+              <BookingCalendar />
             </div>
           </div>
         </section>

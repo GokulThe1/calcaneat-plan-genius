@@ -1,0 +1,157 @@
+Section 1: Basic Profile
+
+What’s your age group?
+
+Under 18
+
+18–25
+
+26–35
+
+36–45
+
+46+
+
+What’s your gender?
+
+Male
+
+Female
+
+Other / Prefer not to say
+
+✨ Cheer Message: “Great start! Every answer helps us build the perfect plan just for you 💪”
+
+What’s your current weight (kg)? (input box)
+
+What’s your height (cm)? (input box)
+
+Section 2: Health & Lifestyle
+
+What’s your primary goal?
+
+Lose weight
+
+Gain muscle
+
+Maintain weight
+
+Improve overall health
+
+How active are you on a daily basis?
+
+Sedentary (little to no exercise)
+
+Light activity (1–2 workouts/week)
+
+Moderate activity (3–5 workouts/week)
+
+Very active (6–7 workouts/week)
+
+✨ Cheer Message: “Awesome! You’re one step closer to achieving your health goals 🚀”
+
+Do you have any of these health concerns?
+
+Diabetes
+
+High blood pressure
+
+High cholesterol
+
+PCOS / Hormonal issues
+
+None
+
+Do you take any regular medications? (Yes / No)
+
+Section 3: Food Preferences
+
+What’s your dietary preference?
+
+Vegetarian
+
+Vegan
+
+Eggetarian
+
+Non-vegetarian
+
+Keto / Low-carb
+
+Any allergies or foods to avoid? (multi-select)
+
+Dairy
+
+Gluten
+
+Nuts
+
+Shellfish
+
+Soy
+
+Other
+
+✨ Cheer Message: “Noted! We’ll make sure your meals are safe and tasty 🌱🍲”
+
+How many meals do you prefer per day?
+
+3 (Breakfast, Lunch, Dinner)
+
+4–5 small meals/snacks
+
+Flexible, I don’t mind
+
+Do you prefer spicy, mild, or balanced flavors?
+
+Spicy 🌶️
+
+Mild 🌸
+
+Balanced 🍴
+
+Section 4: Habits & Routine
+
+When do you usually wake up? (time input)
+
+When do you usually sleep? (time input)
+
+Do you usually eat late at night? (Yes / No)
+
+✨ Cheer Message: “We’re building your lifestyle-friendly plan – you’re doing amazing 👏”
+
+Do you consume alcohol?
+
+Never
+
+Occasionally
+
+Regularly
+
+How much water do you drink daily?
+
+Less than 1L
+
+1–2L
+
+2–3L
+
+3L+
+
+Section 5: Personalization
+
+Do you want to include snacks & desserts in your plan? (Yes / No)
+
+What’s your food budget per day (₹)? (slider input)
+
+How soon do you want to see results?
+
+2–4 weeks
+
+1–3 months
+
+3–6 months
+
+Long-term lifestyle
+
+✨ Final Cheer Message: “Fantastic! 🎉 Your personalized plan is ready. Get ready to enjoy meals designed exactly for your body and goals.”
