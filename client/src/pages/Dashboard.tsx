@@ -41,12 +41,11 @@ const weeklyMeals = [
 ];
 
 const milestones = [
-  { id: 1, name: 'Consultation', status: 'completed', icon: CheckCircle2, color: 'text-primary' },
+  { id: 1, name: 'Physician Consultation', status: 'completed', icon: CheckCircle2, color: 'text-primary' },
   { id: 2, name: 'Test Collection', status: 'completed', icon: CheckCircle2, color: 'text-primary' },
-  { id: 3, name: 'Diagnosis', status: 'in-progress', icon: Clock, color: 'text-chart-2' },
-  { id: 4, name: 'Dietician Review', status: 'locked', icon: Lock, color: 'text-muted-foreground' },
-  { id: 5, name: 'Diet Chart', status: 'locked', icon: Lock, color: 'text-muted-foreground' },
-  { id: 6, name: 'Plan Activation', status: 'locked', icon: Lock, color: 'text-muted-foreground' },
+  { id: 3, name: 'Discussion', status: 'in-progress', icon: Clock, color: 'text-chart-2' },
+  { id: 4, name: 'Diet Chart', status: 'locked', icon: Lock, color: 'text-muted-foreground' },
+  { id: 5, name: 'Meal Delivery', status: 'locked', icon: Lock, color: 'text-muted-foreground' },
 ];
 
 export default function Dashboard() {
@@ -86,7 +85,7 @@ export default function Dashboard() {
                   </CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
+                  <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
                     {milestones.map((milestone) => (
                       <div
                         key={milestone.id}
@@ -110,8 +109,8 @@ export default function Dashboard() {
                     ))}
                   </div>
                   <div className="mt-6">
-                    <Progress value={33} data-testid="progress-milestones" />
-                    <p className="text-sm text-muted-foreground mt-2">2 of 6 milestones completed</p>
+                    <Progress value={40} data-testid="progress-milestones" />
+                    <p className="text-sm text-muted-foreground mt-2">2 of 5 milestones completed</p>
                   </div>
                 </CardContent>
               </Card>
