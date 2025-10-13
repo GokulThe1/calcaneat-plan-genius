@@ -9,6 +9,7 @@ import Home from "@/pages/Home";
 import AIPlan from "@/pages/AIPlan";
 import ClinicalPlan from "@/pages/ClinicalPlan";
 import Dashboard from "@/pages/Dashboard";
+import Admin from "@/pages/Admin";
 import NotFound from "@/pages/not-found";
 
 function Router() {
@@ -29,6 +30,7 @@ function Router() {
           <Route path="/ai-plan" component={AIPlan} />
           <Route path="/clinical-plan" component={ClinicalPlan} />
           <Route path="/dashboard" component={Dashboard} />
+          <Route path="/admin" component={Admin} />
           <Route component={NotFound} />
         </>
       )}
