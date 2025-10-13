@@ -275,6 +275,125 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Complete signup with consultation (unauthenticated - new users)
+  app.post('/api/signup-with-consultation', async (req, res) => {
+    try {
+      const schema = z.object({
+        name: z.string(),
+        email: z.string().email(),
+        phone: z.string(),
+        characterType: z.string(),
+        characterImage: z.string().optional(),
+        consultationDate: z.string(),
+        consultationTime: z.string(),
+        doctorName: z.string(),
+        planType: z.string(),
+      });
+      
+      const data = schema.parse(req.body);
+      const [firstName, ...lastNameParts] = data.name.split(' ');
+      const lastName = lastNameParts.join(' ');
+      
+      // Create user
+      const user = await storage.createUser({
+        email: data.email,
+        firstName,
+        lastName,
+        phone: data.phone,
+        characterType: data.characterType,
+        characterImageUrl: data.characterImage || null,
+        role: 'customer',
+      });
+      
+      // Create consultation
+      const consultation = await storage.createConsultation({
+        userId: user.id,
+        doctorName: data.doctorName,
+        scheduledDate: data.consultationDate,
+        scheduledTime: data.consultationTime,
+        meetingType: 'clinical',
+        status: 'scheduled',
+      });
+      
+      // Create payment session
+      const paymentSession = await storage.createPaymentSession({
+        userId: user.id,
+        consultationDate: data.consultationDate,
+        planType: data.planType,
+        amount: 199900, // ₹1,999 in paise
+        status: 'pending',
+        paymentMethod: 'dummy',
+      });
+      
+      // Initialize milestones
+      const milestoneNames = [
+        'Physician Consultation',
+        'Test Collection',
+        'Discussion',
+        'Diet Chart',
+        'Meal Delivery'
+      ];
+      
+      for (let i = 0; i < milestoneNames.length; i++) {
+        await storage.createMilestone({
+          userId: user.id,
+          name: milestoneNames[i],
+          status: i === 0 ? 'in_progress' : 'locked',
+          order: i + 1,
+        });
+      }
+      
+      res.json({ 
+        success: true, 
+        userId: user.id, 
+        paymentSessionId: paymentSession.id,
+        consultationId: consultation.id,
+      });
+    } catch (error: any) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ message: "Invalid signup data", errors: error.errors });
+      }
+      console.error("Error completing signup:", error);
+      res.status(500).json({ message: "Error completing signup: " + error.message });
+    }
+  });
+
+  // Complete dummy payment (unauthenticated - before login)
+  app.post('/api/payment/complete-dummy', async (req, res) => {
+    try {
+      const schema = z.object({
+        paymentSessionId: z.string(),
+        userId: z.string(),
+      });
+      
+      const { paymentSessionId, userId } = schema.parse(req.body);
+      
+      const session = await storage.getPaymentSession(paymentSessionId);
+      
+      if (!session) {
+        return res.status(404).json({ message: "Payment session not found" });
+      }
+      
+      if (session.userId !== userId) {
+        return res.status(403).json({ message: "Unauthorized" });
+      }
+      
+      // Update payment session status
+      await storage.updatePaymentSession(paymentSessionId, { 
+        status: 'completed',
+        completedAt: new Date(),
+      });
+      
+      res.json({ success: true, message: "Payment completed successfully" });
+    } catch (error: any) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ message: "Invalid payment data", errors: error.errors });
+      }
+      console.error("Error completing payment:", error);
+      res.status(500).json({ message: "Error completing payment: " + error.message });
+    }
+  });
+
   app.post('/api/create-razorpay-order', isAuthenticated, async (req: any, res) => {
     try {
       const paymentSchema = z.object({

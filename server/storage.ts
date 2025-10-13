@@ -13,10 +13,14 @@ export interface IStorage {
   updateCustomerProfile(id: string, profile: Partial<InsertCustomerProfile>): Promise<CustomerProfile | undefined>;
   
   getUserMilestones(userId: string): Promise<Milestone[]>;
+  createMilestone(milestone: InsertMilestone): Promise<Milestone>;
   updateMilestone(id: string, status: string): Promise<Milestone | undefined>;
   
   getUserReports(userId: string): Promise<Report[]>;
   createReport(report: InsertReport): Promise<Report>;
+  
+  createConsultation(consultation: InsertConsultation): Promise<Consultation>;
+  getUserConsultations(userId: string): Promise<Consultation[]>;
   
   getOrdersByStatus(status: string): Promise<Order[]>;
   updateOrderStatus(id: string, status: string): Promise<Order | undefined>;
@@ -33,6 +37,7 @@ export class MemStorage implements IStorage {
   private profiles: Map<string, CustomerProfile>;
   private milestones: Map<string, Milestone>;
   private reports: Map<string, Report>;
+  private consultations: Map<string, Consultation>;
   private orders: Map<string, Order>;
   private paymentSessions: Map<string, PaymentSession>;
 
@@ -41,6 +46,7 @@ export class MemStorage implements IStorage {
     this.profiles = new Map();
     this.milestones = new Map();
     this.reports = new Map();
+    this.consultations = new Map();
     this.orders = new Map();
     this.paymentSessions = new Map();
   }
@@ -62,6 +68,7 @@ export class MemStorage implements IStorage {
       email: upsertUser.email || null,
       firstName: upsertUser.firstName || null,
       lastName: upsertUser.lastName || null,
+      phone: upsertUser.phone || existingUser?.phone || null,
       profileImageUrl: upsertUser.profileImageUrl || null,
       characterImageUrl: upsertUser.characterImageUrl || existingUser?.characterImageUrl || null,
       characterType: upsertUser.characterType || existingUser?.characterType || null,
@@ -80,6 +87,7 @@ export class MemStorage implements IStorage {
       email: insertUser.email || null,
       firstName: insertUser.firstName || null,
       lastName: insertUser.lastName || null,
+      phone: insertUser.phone || null,
       profileImageUrl: insertUser.profileImageUrl || null,
       characterImageUrl: insertUser.characterImageUrl || null,
       characterType: insertUser.characterType || null,
@@ -187,6 +195,37 @@ export class MemStorage implements IStorage {
     };
     this.reports.set(id, report);
     return report;
+  }
+
+  async createMilestone(insertMilestone: InsertMilestone): Promise<Milestone> {
+    const id = randomUUID();
+    const milestone: Milestone = {
+      ...insertMilestone,
+      id,
+      completedAt: null,
+      createdAt: new Date(),
+    };
+    this.milestones.set(id, milestone);
+    return milestone;
+  }
+
+  async createConsultation(insertConsultation: InsertConsultation): Promise<Consultation> {
+    const id = randomUUID();
+    const consultation: Consultation = {
+      ...insertConsultation,
+      id,
+      consultantId: insertConsultation.consultantId || null,
+      notes: insertConsultation.notes || null,
+      createdAt: new Date(),
+    };
+    this.consultations.set(id, consultation);
+    return consultation;
+  }
+
+  async getUserConsultations(userId: string): Promise<Consultation[]> {
+    return Array.from(this.consultations.values()).filter(
+      (consultation) => consultation.userId === userId
+    );
   }
 
   async getOrdersByStatus(status: string): Promise<Order[]> {

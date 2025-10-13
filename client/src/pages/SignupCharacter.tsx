@@ -65,7 +65,7 @@ export default function SignupCharacter() {
     }
   };
 
-  const handleContinue = () => {
+  const handleContinue = async () => {
     if (!selectedCharacter) {
       toast({
         title: 'Select Your Character',
@@ -76,15 +76,44 @@ export default function SignupCharacter() {
     }
 
     const consultationData = JSON.parse(localStorage.getItem('consultationData') || '{}');
-    const userData = {
-      ...formData,
-      characterType: selectedCharacter,
-      characterImage: selectedCharacter === 'uploaded' ? uploadedImage : '',
-      consultationData,
-    };
 
-    localStorage.setItem('signupData', JSON.stringify(userData));
-    navigate('/payment');
+    try {
+      const response = await fetch('/api/signup-with-consultation', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: formData.name,
+          email: formData.email,
+          phone: formData.phone,
+          characterType: selectedCharacter,
+          characterImage: selectedCharacter === 'uploaded' ? uploadedImage : undefined,
+          consultationDate: consultationData.date,
+          consultationTime: consultationData.time,
+          doctorName: consultationData.doctorName,
+          planType: consultationData.planType,
+        }),
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.message || 'Signup failed');
+      }
+
+      const data = await response.json();
+      
+      // Store userId and payment session ID for later
+      localStorage.setItem('pendingUserId', data.userId);
+      localStorage.setItem('pendingPaymentSessionId', data.paymentSessionId);
+      localStorage.setItem('userEmail', formData.email);
+      
+      navigate('/payment');
+    } catch (error) {
+      toast({
+        title: 'Signup Failed',
+        description: error instanceof Error ? error.message : 'Something went wrong',
+        variant: 'destructive',
+      });
+    }
   };
 
   if (step === 'signup') {

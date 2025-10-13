@@ -32,14 +32,44 @@ export default function DummyPayment() {
     e.preventDefault();
     setIsProcessing(true);
 
-    await new Promise(resolve => setTimeout(resolve, 2000));
+    try {
+      // Simulate payment processing
+      await new Promise(resolve => setTimeout(resolve, 2000));
 
-    setIsProcessing(false);
-    setIsSuccess(true);
+      // Get stored data from localStorage
+      const userId = localStorage.getItem('pendingUserId');
+      const paymentSessionId = localStorage.getItem('pendingPaymentSessionId');
 
-    setTimeout(() => {
-      navigate('/payment-success');
-    }, 2000);
+      if (!userId || !paymentSessionId) {
+        throw new Error('Missing payment session data');
+      }
+
+      // Call backend to complete payment
+      const response = await fetch('/api/payment/complete-dummy', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          userId,
+          paymentSessionId,
+        }),
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.message || 'Payment failed');
+      }
+
+      setIsProcessing(false);
+      setIsSuccess(true);
+
+      setTimeout(() => {
+        navigate('/payment-success');
+      }, 2000);
+    } catch (error) {
+      setIsProcessing(false);
+      console.error('Payment error:', error);
+      alert(error instanceof Error ? error.message : 'Payment failed. Please try again.');
+    }
   };
 
   const consultationData = JSON.parse(localStorage.getItem('consultationData') || '{}');

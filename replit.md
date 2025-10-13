@@ -58,18 +58,27 @@ Preferred communication style: Simple, everyday language.
 - Schema-first design with Zod validation for runtime type checking
 
 **Core Data Models**
-- **Users**: Authentication and profile data with role assignment
+- **Users**: Authentication and profile data with role assignment, character selection (preset or upload), phone number
 - **Customer Profiles**: Comprehensive health and preference data from quiz responses
-- **Milestones**: Track customer progress through clinical plan stages
-- **Reports**: Store health assessments and diagnostic results
+- **Consultations**: Doctor appointments with scheduled date/time, doctor name, meeting type, and status tracking
+- **Milestones**: 5-stage progress tracking (Physician Consultation → Test Collection → Discussion → Diet Chart → Meal Delivery)
+- **Reports**: Store health assessments and diagnostic results for user download
+- **Payment Sessions**: Track consultation payment status with dummy gateway integration (₹1,999 fee)
 - **Orders**: Meal order management with status workflow
 - **Subscriptions**: Customer plan enrollment and billing
 - **Sessions**: Secure session storage for authentication
 
 **Data Access Pattern**
 - Storage abstraction layer (IStorage interface) allows for flexible implementations
-- In-memory storage for development/testing
-- Database storage for production with connection pooling
+- In-memory storage (MemStorage) currently used for all environments
+- Database schema synced with PostgreSQL via Drizzle migrations
+
+**Backend API Routes**
+- POST /api/signup-with-consultation: Creates user account with consultation booking and initial milestones
+- POST /api/payment/complete-dummy: Marks dummy payment as completed
+- GET /api/auth/user: Retrieves authenticated user details
+- GET /api/admin/customers: Lists all customer accounts (admin only)
+- PATCH /api/admin/milestones/:id: Updates milestone status (admin only)
 
 ### External Dependencies
 
