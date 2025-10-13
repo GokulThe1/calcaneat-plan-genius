@@ -1,11 +1,10 @@
 import { Header } from '@/components/Header';
 import { Footer } from '@/components/Footer';
 import { ProcessSteps } from '@/components/ProcessSteps';
-import { BookingCalendar } from '@/components/BookingCalendar';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Calendar, Stethoscope, CheckCircle2 } from 'lucide-react';
+import { Stethoscope, CheckCircle2, ArrowLeft } from 'lucide-react';
 import { Link } from 'wouter';
 
 export default function ClinicalPlan() {
@@ -90,29 +89,16 @@ export default function ClinicalPlan() {
                     </div>
 
                     <div className="flex flex-col sm:flex-row gap-3 pt-4">
-                      <Link href="/book-consultation" className="flex-1">
-                        <Button size="lg" className="w-full" data-testid="button-book-consultation">
-                          <Calendar className="mr-2 h-5 w-5" />
-                          Book Your First Consultation
-                        </Button>
-                      </Link>
                       <Link href="/" className="flex-1">
-                        <Button size="lg" variant="outline" className="w-full" data-testid="button-learn-more">
-                          Learn More
+                        <Button size="lg" variant="outline" className="w-full" data-testid="button-back-home">
+                          <ArrowLeft className="mr-2 h-5 w-5" />
+                          Back to Home
                         </Button>
                       </Link>
                     </div>
                   </div>
                 </CardContent>
               </Card>
-            </div>
-          </div>
-        </section>
-
-        <section className="py-16 md:py-20 lg:py-24 bg-muted/30">
-          <div className="container mx-auto px-4 md:px-6">
-            <div className="max-w-2xl mx-auto">
-              <BookingCalendar />
             </div>
           </div>
         </section>

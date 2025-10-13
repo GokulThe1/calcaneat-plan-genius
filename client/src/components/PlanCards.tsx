@@ -21,7 +21,7 @@ const plans = [
       'Chef-prepared meals delivered daily',
       'Ongoing health monitoring',
     ],
-    cta: 'Book Consultation',
+    cta: 'Learn More',
     href: '/clinical-plan',
   },
   {
