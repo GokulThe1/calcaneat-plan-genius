@@ -34,10 +34,10 @@ export default function ConsultationBooking() {
     }
 
     const bookingData = {
-      planType: 'Clinical-Level Guided',
+      planType: 'clinical',
       date: format(selectedDate, 'yyyy-MM-dd'),
       time: selectedTime,
-      doctor: selectedDoctor.name,
+      doctorName: selectedDoctor.name,
     };
 
     localStorage.setItem('consultationData', JSON.stringify(bookingData));

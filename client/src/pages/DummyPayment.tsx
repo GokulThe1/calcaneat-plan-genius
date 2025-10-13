@@ -221,11 +221,11 @@ export default function DummyPayment() {
                       </span>
                     </div>
 
-                    {consultationData.doctor && (
+                    {consultationData.doctorName && (
                       <div className="flex justify-between text-sm">
                         <span className="text-muted-foreground">Doctor</span>
                         <span className="font-medium" data-testid="text-doctor">
-                          {consultationData.doctor}
+                          {consultationData.doctorName}
                         </span>
                       </div>
                     )}

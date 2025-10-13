@@ -54,12 +54,12 @@ export default function PaymentSuccess() {
                     </div>
                   </div>
 
-                  {consultationData.doctor && (
+                  {consultationData.doctorName && (
                     <div className="flex items-center gap-3">
                       <User className="h-5 w-5 text-primary" />
                       <div className="flex-1">
                         <p className="text-sm text-muted-foreground">Doctor</p>
-                        <p className="font-medium" data-testid="text-doctor">{consultationData.doctor}</p>
+                        <p className="font-medium" data-testid="text-doctor">{consultationData.doctorName}</p>
                       </div>
                     </div>
                   )}

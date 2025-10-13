@@ -234,7 +234,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const userId = req.user.claims.sub;
       const session = await storage.createPaymentSession({
         userId,
-        consultationDate: new Date(data.consultationDate),
+        consultationDate: data.consultationDate,
         planType: data.planType,
         amount, // Server-determined amount, not client-provided
         status: 'pending',
@@ -278,6 +278,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Complete signup with consultation (unauthenticated - new users)
   app.post('/api/signup-with-consultation', async (req, res) => {
     try {
+      console.log("Received signup data:", JSON.stringify(req.body, null, 2));
+      
       const schema = z.object({
         name: z.string(),
         email: z.string().email(),
@@ -351,6 +353,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       });
     } catch (error: any) {
       if (error instanceof z.ZodError) {
+        console.error("Validation error:", JSON.stringify(error.errors, null, 2));
         return res.status(400).json({ message: "Invalid signup data", errors: error.errors });
       }
       console.error("Error completing signup:", error);
