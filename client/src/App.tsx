@@ -8,6 +8,9 @@ import { useAuth } from "@/hooks/useAuth";
 import Home from "@/pages/Home";
 import AIPlan from "@/pages/AIPlan";
 import ClinicalPlan from "@/pages/ClinicalPlan";
+import ConsultationBooking from "@/pages/ConsultationBooking";
+import SignupCharacter from "@/pages/SignupCharacter";
+import DummyPayment from "@/pages/DummyPayment";
 import Dashboard from "@/pages/Dashboard";
 import Admin from "@/pages/Admin";
 import Kitchen from "@/pages/Kitchen";
@@ -24,6 +27,9 @@ function Router() {
           <Route path="/" component={Home} />
           <Route path="/ai-plan" component={AIPlan} />
           <Route path="/clinical-plan" component={ClinicalPlan} />
+          <Route path="/book-consultation" component={ConsultationBooking} />
+          <Route path="/signup-character" component={SignupCharacter} />
+          <Route path="/payment" component={DummyPayment} />
           <Route component={NotFound} />
         </>
       ) : (
@@ -31,6 +37,9 @@ function Router() {
           <Route path="/" component={Dashboard} />
           <Route path="/ai-plan" component={AIPlan} />
           <Route path="/clinical-plan" component={ClinicalPlan} />
+          <Route path="/book-consultation" component={ConsultationBooking} />
+          <Route path="/signup-character" component={SignupCharacter} />
+          <Route path="/payment" component={DummyPayment} />
           <Route path="/dashboard" component={Dashboard} />
           <Route path="/admin" component={Admin} />
           <Route path="/kitchen" component={Kitchen} />

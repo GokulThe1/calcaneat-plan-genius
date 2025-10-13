@@ -4,7 +4,7 @@ import { ProcessSteps } from '@/components/ProcessSteps';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Stethoscope, CheckCircle2, ArrowLeft } from 'lucide-react';
+import { Stethoscope, CheckCircle2, Calendar } from 'lucide-react';
 import { Link } from 'wouter';
 
 export default function ClinicalPlan() {
@@ -89,10 +89,10 @@ export default function ClinicalPlan() {
                     </div>
 
                     <div className="flex flex-col sm:flex-row gap-3 pt-4">
-                      <Link href="/" className="flex-1">
-                        <Button size="lg" variant="outline" className="w-full" data-testid="button-back-home">
-                          <ArrowLeft className="mr-2 h-5 w-5" />
-                          Back to Home
+                      <Link href="/book-consultation" className="flex-1">
+                        <Button size="lg" className="w-full" data-testid="button-book-consultation">
+                          <Calendar className="mr-2 h-5 w-5" />
+                          Book Your First Consultation
                         </Button>
                       </Link>
                     </div>

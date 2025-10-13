@@ -10,7 +10,7 @@ const plans = [
     name: 'Premium Clinical Plan',
     icon: Stethoscope,
     description: 'Comprehensive health assessment with expert guidance',
-    price: 'Custom pricing',
+    price: 'Starting at ₹1,999',
     isPremium: true,
     features: [
       'Online/offline physician consultation',
@@ -21,8 +21,8 @@ const plans = [
       'Chef-prepared meals delivered daily',
       'Ongoing health monitoring',
     ],
-    cta: 'Learn More',
-    href: '/clinical-plan',
+    cta: 'Start My Clinical Plan',
+    href: '/book-consultation',
   },
   {
     id: 'ai',
