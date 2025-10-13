@@ -88,9 +88,9 @@ export default function PaymentSuccess() {
                   size="lg"
                   className="w-full"
                   onClick={() => navigate('/auth/login')}
-                  data-testid="button-go-to-dashboard"
+                  data-testid="button-go-to-profile"
                 >
-                  Sign In to View Dashboard
+                  Sign In to View Profile
                   <ArrowRight className="ml-2 h-4 w-4" />
                 </Button>
 

@@ -12,6 +12,7 @@ import ConsultationBooking from "@/pages/ConsultationBooking";
 import SignupCharacter from "@/pages/SignupCharacter";
 import DummyPayment from "@/pages/DummyPayment";
 import PaymentSuccess from "@/pages/PaymentSuccess";
+import Profile from "@/pages/Profile";
 import Dashboard from "@/pages/Dashboard";
 import Admin from "@/pages/Admin";
 import Kitchen from "@/pages/Kitchen";
@@ -36,13 +37,14 @@ function Router() {
         </>
       ) : (
         <>
-          <Route path="/" component={Dashboard} />
+          <Route path="/" component={Profile} />
           <Route path="/ai-plan" component={AIPlan} />
           <Route path="/clinical-plan" component={ClinicalPlan} />
           <Route path="/book-consultation" component={ConsultationBooking} />
           <Route path="/signup-character" component={SignupCharacter} />
           <Route path="/payment" component={DummyPayment} />
           <Route path="/payment-success" component={PaymentSuccess} />
+          <Route path="/profile" component={Profile} />
           <Route path="/dashboard" component={Dashboard} />
           <Route path="/admin" component={Admin} />
           <Route path="/kitchen" component={Kitchen} />
