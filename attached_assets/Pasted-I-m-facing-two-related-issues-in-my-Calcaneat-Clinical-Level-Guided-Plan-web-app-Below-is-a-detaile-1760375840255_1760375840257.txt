@@ -1,0 +1,71 @@
+I’m facing two related issues in my Calcaneat Clinical-Level Guided Plan web app. Below is a detailed description of the entire flow and exactly where the problems occur:
+
+Step-by-Step Flow:
+
+I start on the “Book Your Consultation” page.
+
+I see three doctors listed and, on the right side, a Booking Summary section.
+
+I select a date, and then a row of time slots appears to choose from.
+
+After choosing the slot, I click “Continue to Sign Up.”
+
+I’m redirected to the Sign-Up page, where I enter my account details (name, email, phone, password, etc.).
+
+After creating the account, I’m taken to the Character Creation page, where I either upload or select a preset character.
+
+Next, I’m directed to the Payment page, where I enter payment details (dummy or real).
+
+After submitting payment, I get a success message that says:
+“Payment Successful – Your consultation has been booked successfully.”
+
+Below that, there are two buttons:
+
+“Sign in to View Profile”
+
+“Back to Home.”
+
+When I click “Sign in to View Profile,” I get an error:
+“404 – Page Not Found.”
+
+Issue 1 – 404 Error:
+
+The “Sign in to View Profile” button after payment success seems to be linked to a broken or non-existent route.
+
+Please check the redirect or navigation path for that button — it should ideally lead to an existing route like /dashboard or /profile.
+
+Ensure that the corresponding route/component is properly created, exported, and registered in the router (for example, in App.js or router.jsx).
+
+Also confirm that after sign-up and payment, the user authentication state persists so that the new user can actually view their profile immediately.
+
+Issue 2 – Database Not Storing User Data:
+
+Even though the front-end sign-up flow completes successfully, I noticed that no data is getting saved in the database — neither in development nor production.
+
+Each time I create a new account, no dummy or real entries appear in the connected database.
+
+Please verify:
+
+If the backend or Firebase/Supabase connection is correctly configured.
+
+Whether the sign-up API or database write logic (createUser or addUser function) is properly connected to the database instance.
+
+If environment variables like DATABASE_URL, SUPABASE_URL, or MONGO_URI are missing or misconfigured.
+
+That the database schema or collection actually exists and matches the data model used during sign-up.
+
+The goal is to ensure that every new user account created during sign-up (even in dummy mode) generates an actual record in the database.
+
+Summary of Fix Request:
+
+Fix the broken redirect link for “Sign in to View Profile” (currently showing 404).
+
+Ensure user account data is properly created and visible in the database after sign-up.
+
+Verify that both frontend routing and backend data persistence work smoothly together across all stages of the flow.
+
+Once fixed, I should be able to:
+
+Successfully sign up and have my account data stored in the database.
+
+Click “Sign in to View Profile” after payment and be redirected to the correct Profile/Dashboard page instead of seeing the 404 error.

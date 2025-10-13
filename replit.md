@@ -70,8 +70,10 @@ Preferred communication style: Simple, everyday language.
 
 **Data Access Pattern**
 - Storage abstraction layer (IStorage interface) allows for flexible implementations
-- In-memory storage (MemStorage) currently used for all environments
+- **DbStorage**: Production database storage using Drizzle ORM for PostgreSQL persistence
+- **MemStorage**: In-memory storage available for testing (data lost on restart)
 - Database schema synced with PostgreSQL via Drizzle migrations
+- All user signups, consultations, milestones, and payments are persisted to PostgreSQL
 
 **Backend API Routes**
 - POST /api/signup-with-consultation: Creates user account with consultation booking and initial milestones

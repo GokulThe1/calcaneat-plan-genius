@@ -1,5 +1,7 @@
-import { type User, type UpsertUser, type InsertUser, type CustomerProfile, type InsertCustomerProfile, type Subscription, type InsertSubscription, type Milestone, type InsertMilestone, type Report, type InsertReport, type Consultation, type InsertConsultation, type Order, type InsertOrder, type PaymentSession, type InsertPaymentSession } from "@shared/schema";
+import { type User, type UpsertUser, type InsertUser, type CustomerProfile, type InsertCustomerProfile, type Subscription, type InsertSubscription, type Milestone, type InsertMilestone, type Report, type InsertReport, type Consultation, type InsertConsultation, type Order, type InsertOrder, type PaymentSession, type InsertPaymentSession, users, customerProfiles, milestones, reports, consultations, orders, paymentSessions } from "@shared/schema";
 import { randomUUID } from "crypto";
+import { db } from "./db";
+import { eq, and } from "drizzle-orm";
 
 export interface IStorage {
   getUser(id: string): Promise<User | undefined>;
@@ -202,6 +204,7 @@ export class MemStorage implements IStorage {
     const milestone: Milestone = {
       ...insertMilestone,
       id,
+      status: insertMilestone.status || 'locked',
       completedAt: null,
       createdAt: new Date(),
     };
@@ -214,6 +217,8 @@ export class MemStorage implements IStorage {
     const consultation: Consultation = {
       ...insertConsultation,
       id,
+      status: insertConsultation.status || 'scheduled',
+      doctorName: insertConsultation.doctorName || null,
       consultantId: insertConsultation.consultantId || null,
       notes: insertConsultation.notes || null,
       createdAt: new Date(),
@@ -273,7 +278,7 @@ export class MemStorage implements IStorage {
       planType: insertSession.planType,
       amount: insertSession.amount,
       status: insertSession.status || 'pending',
-      razorpayOrderId: insertSession.razorpayOrderId || null,
+      paymentMethod: insertSession.paymentMethod || null,
       completedAt: null,
       createdAt: new Date(),
     };
@@ -312,4 +317,167 @@ export class MemStorage implements IStorage {
   }
 }
 
-export const storage = new MemStorage();
+// Database Storage Implementation using Drizzle ORM
+export class DbStorage implements IStorage {
+  async getUser(id: string): Promise<User | undefined> {
+    const result = await db.select().from(users).where(eq(users.id, id));
+    return result[0];
+  }
+
+  async getUserByEmail(email: string): Promise<User | undefined> {
+    const result = await db.select().from(users).where(eq(users.email, email));
+    return result[0];
+  }
+
+  async upsertUser(upsertUser: UpsertUser): Promise<User> {
+    if (upsertUser.id) {
+      const existing = await this.getUser(upsertUser.id);
+      if (existing) {
+        const [updated] = await db.update(users)
+          .set({
+            email: upsertUser.email || existing.email,
+            firstName: upsertUser.firstName || existing.firstName,
+            lastName: upsertUser.lastName || existing.lastName,
+            phone: upsertUser.phone || existing.phone,
+            profileImageUrl: upsertUser.profileImageUrl || existing.profileImageUrl,
+            characterImageUrl: upsertUser.characterImageUrl || existing.characterImageUrl,
+            characterType: upsertUser.characterType || existing.characterType,
+            role: upsertUser.role || existing.role,
+            updatedAt: new Date(),
+          })
+          .where(eq(users.id, upsertUser.id))
+          .returning();
+        return updated;
+      }
+    }
+    
+    const [newUser] = await db.insert(users).values({
+      email: upsertUser.email || null,
+      firstName: upsertUser.firstName || null,
+      lastName: upsertUser.lastName || null,
+      phone: upsertUser.phone || null,
+      profileImageUrl: upsertUser.profileImageUrl || null,
+      characterImageUrl: upsertUser.characterImageUrl || null,
+      characterType: upsertUser.characterType || null,
+      role: upsertUser.role || 'customer',
+    }).returning();
+    return newUser;
+  }
+
+  async createUser(insertUser: InsertUser): Promise<User> {
+    const [user] = await db.insert(users).values(insertUser).returning();
+    return user;
+  }
+
+  async getCustomers(): Promise<User[]> {
+    return await db.select().from(users).where(eq(users.role, 'customer'));
+  }
+
+  async getCustomerProfile(userId: string): Promise<CustomerProfile | undefined> {
+    const result = await db.select().from(customerProfiles).where(eq(customerProfiles.userId, userId));
+    return result[0];
+  }
+
+  async createCustomerProfile(profile: InsertCustomerProfile): Promise<CustomerProfile> {
+    const [created] = await db.insert(customerProfiles).values(profile).returning();
+    return created;
+  }
+
+  async updateCustomerProfile(id: string, profile: Partial<InsertCustomerProfile>): Promise<CustomerProfile | undefined> {
+    const [updated] = await db.update(customerProfiles)
+      .set({ ...profile, updatedAt: new Date() })
+      .where(eq(customerProfiles.id, id))
+      .returning();
+    return updated;
+  }
+
+  async getUserMilestones(userId: string): Promise<Milestone[]> {
+    return await db.select().from(milestones).where(eq(milestones.userId, userId));
+  }
+
+  async createMilestone(milestone: InsertMilestone): Promise<Milestone> {
+    const [created] = await db.insert(milestones).values(milestone).returning();
+    return created;
+  }
+
+  async updateMilestone(id: string, status: string): Promise<Milestone | undefined> {
+    const [updated] = await db.update(milestones)
+      .set({ 
+        status, 
+        completedAt: status === 'completed' ? new Date() : null 
+      })
+      .where(eq(milestones.id, id))
+      .returning();
+    return updated;
+  }
+
+  async getUserReports(userId: string): Promise<Report[]> {
+    return await db.select().from(reports).where(eq(reports.userId, userId));
+  }
+
+  async createReport(report: InsertReport): Promise<Report> {
+    const [created] = await db.insert(reports).values(report).returning();
+    return created;
+  }
+
+  async createConsultation(consultation: InsertConsultation): Promise<Consultation> {
+    const [created] = await db.insert(consultations).values(consultation).returning();
+    return created;
+  }
+
+  async getUserConsultations(userId: string): Promise<Consultation[]> {
+    return await db.select().from(consultations).where(eq(consultations.userId, userId));
+  }
+
+  async getOrdersByStatus(status: string): Promise<Order[]> {
+    return await db.select().from(orders).where(eq(orders.status, status));
+  }
+
+  async updateOrderStatus(id: string, status: string): Promise<Order | undefined> {
+    const [updated] = await db.update(orders)
+      .set({ 
+        status,
+        deliveredAt: status === 'delivered' ? new Date() : null
+      })
+      .where(eq(orders.id, id))
+      .returning();
+    return updated;
+  }
+
+  async createOrder(order: InsertOrder): Promise<Order> {
+    const [created] = await db.insert(orders).values(order).returning();
+    return created;
+  }
+
+  async createPaymentSession(session: InsertPaymentSession): Promise<PaymentSession> {
+    const [created] = await db.insert(paymentSessions).values(session).returning();
+    return created;
+  }
+
+  async getPaymentSession(id: string): Promise<PaymentSession | undefined> {
+    const result = await db.select().from(paymentSessions).where(eq(paymentSessions.id, id));
+    return result[0];
+  }
+
+  async updatePaymentSession(id: string, updates: Partial<PaymentSession>): Promise<PaymentSession | undefined> {
+    const [updated] = await db.update(paymentSessions)
+      .set(updates)
+      .where(eq(paymentSessions.id, id))
+      .returning();
+    return updated;
+  }
+
+  async updateUser(id: string, updates: Partial<User>): Promise<User | undefined> {
+    const [updated] = await db.update(users)
+      .set({ ...updates, updatedAt: new Date() })
+      .where(eq(users.id, id))
+      .returning();
+    return updated;
+  }
+}
+
+// Use Database Storage for production persistence
+export const storage = new DbStorage();
+
+// Keep MemStorage available for testing
+export const memStorage = new MemStorage();

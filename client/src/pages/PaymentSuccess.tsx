@@ -87,7 +87,7 @@ export default function PaymentSuccess() {
                 <Button
                   size="lg"
                   className="w-full"
-                  onClick={() => navigate('/auth/login')}
+                  onClick={() => window.location.href = '/auth/replit'}
                   data-testid="button-go-to-profile"
                 >
                   Sign In to View Profile
