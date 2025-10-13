@@ -4,13 +4,15 @@ import { storage } from "./storage";
 import { setupAuth, isAuthenticated } from "./replitAuth";
 import { insertReportSchema, insertOrderSchema } from "@shared/schema";
 import { z } from "zod";
-import Stripe from "stripe";
+import Razorpay from "razorpay";
 
-if (!process.env.STRIPE_SECRET_KEY) {
-  throw new Error('Missing required Stripe secret: STRIPE_SECRET_KEY');
+if (!process.env.RAZORPAY_KEY_ID || !process.env.RAZORPAY_KEY_SECRET) {
+  throw new Error('Missing required Razorpay secrets: RAZORPAY_KEY_ID and RAZORPAY_KEY_SECRET');
 }
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY, {
-  apiVersion: "2025-09-30.clover",
+
+const razorpay = new Razorpay({
+  key_id: process.env.RAZORPAY_KEY_ID,
+  key_secret: process.env.RAZORPAY_KEY_SECRET,
 });
 
 const isAdmin: RequestHandler = async (req: any, res, next) => {
@@ -273,7 +275,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post('/api/create-payment-intent', isAuthenticated, async (req: any, res) => {
+  app.post('/api/create-razorpay-order', isAuthenticated, async (req: any, res) => {
     try {
       const paymentSchema = z.object({
         sessionId: z.string(),
@@ -297,23 +299,62 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ message: "Payment session already completed" });
       }
 
-      // Use server-side amount from the session, not client-provided
-      const paymentIntent = await stripe.paymentIntents.create({
-        amount: Math.round(session.amount), // Amount from server-side session
-        currency: "inr",
-        metadata: {
+      // Create Razorpay order
+      const order = await razorpay.orders.create({
+        amount: Math.round(session.amount), // Amount in paise
+        currency: "INR",
+        receipt: sessionId,
+        notes: {
           sessionId,
           userId,
         },
       });
 
-      res.json({ clientSecret: paymentIntent.client_secret });
+      res.json({ 
+        orderId: order.id,
+        amount: order.amount,
+        currency: order.currency,
+        keyId: process.env.RAZORPAY_KEY_ID
+      });
     } catch (error: any) {
       if (error instanceof z.ZodError) {
         return res.status(400).json({ message: "Invalid request data", errors: error.errors });
       }
-      console.error("Error creating payment intent:", error);
-      res.status(500).json({ message: "Error creating payment intent: " + error.message });
+      console.error("Error creating Razorpay order:", error);
+      res.status(500).json({ message: "Error creating payment order: " + error.message });
+    }
+  });
+
+  app.post('/api/verify-payment', isAuthenticated, async (req: any, res) => {
+    try {
+      const verifySchema = z.object({
+        razorpay_order_id: z.string(),
+        razorpay_payment_id: z.string(),
+        razorpay_signature: z.string(),
+        sessionId: z.string(),
+      });
+      const { razorpay_order_id, razorpay_payment_id, razorpay_signature, sessionId } = verifySchema.parse(req.body);
+
+      const crypto = await import('crypto');
+      const expectedSignature = crypto
+        .createHmac('sha256', process.env.RAZORPAY_KEY_SECRET!)
+        .update(`${razorpay_order_id}|${razorpay_payment_id}`)
+        .digest('hex');
+
+      if (expectedSignature !== razorpay_signature) {
+        return res.status(400).json({ message: "Invalid payment signature" });
+      }
+
+      // Update payment session status
+      await storage.updatePaymentSession(sessionId, { status: 'completed' });
+
+      res.json({ success: true, message: "Payment verified successfully" });
+    } catch (error: any) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ message: "Invalid request data", errors: error.errors });
+      }
+      console.error("Error verifying payment:", error);
+      res.status(500).json({ message: "Error verifying payment: " + error.message });
     }
   });
 

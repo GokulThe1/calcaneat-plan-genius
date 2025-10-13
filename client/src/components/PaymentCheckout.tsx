@@ -1,70 +1,14 @@
-import { useStripe, Elements, PaymentElement, useElements } from '@stripe/react-stripe-js';
-import { loadStripe } from '@stripe/stripe-js';
 import { useEffect, useState } from 'react';
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 
-if (!import.meta.env.VITE_STRIPE_PUBLIC_KEY) {
-  throw new Error('Missing required Stripe key: VITE_STRIPE_PUBLIC_KEY');
+declare global {
+  interface Window {
+    Razorpay: any;
+  }
 }
-const stripePromise = loadStripe(import.meta.env.VITE_STRIPE_PUBLIC_KEY);
-
-const CheckoutForm = ({ onSuccess }: { onSuccess: () => void }) => {
-  const stripe = useStripe();
-  const elements = useElements();
-  const { toast } = useToast();
-  const [isProcessing, setIsProcessing] = useState(false);
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-
-    if (!stripe || !elements) {
-      return;
-    }
-
-    setIsProcessing(true);
-
-    const { error } = await stripe.confirmPayment({
-      elements,
-      confirmParams: {
-        return_url: `${window.location.origin}/dashboard`,
-      },
-      redirect: 'if_required',
-    });
-
-    if (error) {
-      toast({
-        title: "Payment Failed",
-        description: error.message,
-        variant: "destructive",
-      });
-      setIsProcessing(false);
-    } else {
-      toast({
-        title: "Payment Successful",
-        description: "Your consultation has been booked!",
-      });
-      onSuccess();
-    }
-  };
-
-  return (
-    <form onSubmit={handleSubmit} className="space-y-6">
-      <PaymentElement />
-      <Button 
-        type="submit" 
-        size="lg" 
-        className="w-full" 
-        disabled={!stripe || !elements || isProcessing}
-        data-testid="button-submit-payment"
-      >
-        {isProcessing ? 'Processing...' : 'Complete Payment'}
-      </Button>
-    </form>
-  );
-};
 
 interface PaymentCheckoutProps {
   sessionId: string;
@@ -72,27 +16,87 @@ interface PaymentCheckoutProps {
 }
 
 export function PaymentCheckout({ sessionId, onSuccess }: PaymentCheckoutProps) {
-  const [clientSecret, setClientSecret] = useState("");
   const [isLoading, setIsLoading] = useState(true);
+  const [orderData, setOrderData] = useState<any>(null);
+  const { toast } = useToast();
 
   useEffect(() => {
-    const createPaymentIntent = async () => {
+    const createOrder = async () => {
       try {
-        const response = await apiRequest('POST', '/api/create-payment-intent', { 
+        const response = await apiRequest('POST', '/api/create-razorpay-order', { 
           sessionId 
-        }) as unknown as { clientSecret: string };
-        setClientSecret(response.clientSecret);
+        }) as unknown as { orderId: string; amount: number; currency: string; keyId: string };
+        setOrderData(response);
       } catch (error) {
-        console.error('Error creating payment intent:', error);
+        console.error('Error creating Razorpay order:', error);
+        toast({
+          title: "Error",
+          description: "Failed to initialize payment. Please try again.",
+          variant: "destructive",
+        });
       } finally {
         setIsLoading(false);
       }
     };
 
-    createPaymentIntent();
-  }, [sessionId]);
+    createOrder();
+  }, [sessionId, toast]);
 
-  if (isLoading || !clientSecret) {
+  const handlePayment = () => {
+    if (!orderData) return;
+
+    const options = {
+      key: orderData.keyId,
+      amount: orderData.amount,
+      currency: orderData.currency,
+      name: "Premium Meal Delivery",
+      description: "Clinical Plan Consultation Fee",
+      order_id: orderData.orderId,
+      handler: async function (response: any) {
+        try {
+          await apiRequest('POST', '/api/verify-payment', {
+            razorpay_order_id: response.razorpay_order_id,
+            razorpay_payment_id: response.razorpay_payment_id,
+            razorpay_signature: response.razorpay_signature,
+            sessionId,
+          });
+          
+          toast({
+            title: "Payment Successful",
+            description: "Your consultation has been booked!",
+          });
+          onSuccess();
+        } catch (error) {
+          console.error('Payment verification failed:', error);
+          toast({
+            title: "Verification Failed",
+            description: "Payment verification failed. Please contact support.",
+            variant: "destructive",
+          });
+        }
+      },
+      prefill: {
+        name: "",
+        email: "",
+        contact: "",
+      },
+      theme: {
+        color: "#10b981",
+      },
+    };
+
+    const razorpay = new window.Razorpay(options);
+    razorpay.on('payment.failed', function (response: any) {
+      toast({
+        title: "Payment Failed",
+        description: response.error.description || "Payment failed. Please try again.",
+        variant: "destructive",
+      });
+    });
+    razorpay.open();
+  };
+
+  if (isLoading) {
     return (
       <Card>
         <CardContent className="p-8">
@@ -108,9 +112,20 @@ export function PaymentCheckout({ sessionId, onSuccess }: PaymentCheckoutProps) 
   return (
     <Card>
       <CardContent className="p-8">
-        <Elements stripe={stripePromise} options={{ clientSecret }}>
-          <CheckoutForm onSuccess={onSuccess} />
-        </Elements>
+        <div className="space-y-6">
+          <div className="text-center space-y-2">
+            <p className="text-muted-foreground">You will be redirected to Razorpay's secure payment gateway</p>
+          </div>
+          <Button 
+            size="lg" 
+            className="w-full" 
+            onClick={handlePayment}
+            disabled={!orderData}
+            data-testid="button-submit-payment"
+          >
+            Pay ₹5,000
+          </Button>
+        </div>
       </CardContent>
     </Card>
   );

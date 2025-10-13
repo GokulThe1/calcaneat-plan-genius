@@ -24,6 +24,7 @@ export interface IStorage {
   
   createPaymentSession(session: InsertPaymentSession): Promise<PaymentSession>;
   getPaymentSession(id: string): Promise<PaymentSession | undefined>;
+  updatePaymentSession(id: string, updates: Partial<PaymentSession>): Promise<PaymentSession | undefined>;
   updateUser(id: string, updates: Partial<User>): Promise<User | undefined>;
 }
 
@@ -243,6 +244,19 @@ export class MemStorage implements IStorage {
 
   async getPaymentSession(id: string): Promise<PaymentSession | undefined> {
     return this.paymentSessions.get(id);
+  }
+
+  async updatePaymentSession(id: string, updates: Partial<PaymentSession>): Promise<PaymentSession | undefined> {
+    const session = this.paymentSessions.get(id);
+    if (!session) return undefined;
+    
+    const updated: PaymentSession = {
+      ...session,
+      ...updates,
+      completedAt: updates.status === 'completed' ? new Date() : session.completedAt,
+    };
+    this.paymentSessions.set(id, updated);
+    return updated;
   }
 
   async updateUser(id: string, updates: Partial<User>): Promise<User | undefined> {
