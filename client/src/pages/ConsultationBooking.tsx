@@ -1,34 +1,36 @@
 import { useState, useEffect } from 'react';
 import { useLocation } from 'wouter';
 import { useAuth } from '@/hooks/useAuth';
-import { BookingCalendar } from '@/components/BookingCalendar';
 import { CharacterCreation } from '@/components/CharacterCreation';
 import { PaymentCheckout } from '@/components/PaymentCheckout';
 import { Header } from '@/components/Header';
 import { Footer } from '@/components/Footer';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Calendar, ArrowLeft } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
-import { useMutation, useQuery } from '@tanstack/react-query';
-import { apiRequest, queryClient } from '@/lib/queryClient';
+import { Calendar, ArrowLeft } from 'lucide-react';
+import { useMutation } from '@tanstack/react-query';
+import { apiRequest } from '@/lib/queryClient';
 import { useToast } from '@/hooks/use-toast';
 import type { PaymentSession } from '@shared/schema';
 
-type Step = 'auth-check' | 'booking' | 'character' | 'payment' | 'complete';
+type Step = 'auth-check' | 'character' | 'payment' | 'complete';
 
 export default function ConsultationBooking() {
   const [, navigate] = useLocation();
   const { isAuthenticated, isLoading } = useAuth();
   const { toast } = useToast();
   const [currentStep, setCurrentStep] = useState<Step>('auth-check');
-  const [consultationDate, setConsultationDate] = useState<Date | null>(null);
   const [sessionId, setSessionId] = useState<string | null>(null);
 
   useEffect(() => {
     if (!isLoading) {
       if (isAuthenticated) {
-        setCurrentStep('booking');
+        // Automatically create session and move to character creation
+        if (!sessionId && !createSessionMutation.isPending) {
+          setCurrentStep('character'); // Move to character step immediately
+          createSessionMutation.mutate();
+        }
       } else {
         setCurrentStep('auth-check');
       }
@@ -36,9 +38,13 @@ export default function ConsultationBooking() {
   }, [isLoading, isAuthenticated]);
 
   const createSessionMutation = useMutation({
-    mutationFn: async (data: { consultationDate: Date }) => {
+    mutationFn: async () => {
+      // Use a default consultation date (7 days from now)
+      const futureDate = new Date();
+      futureDate.setDate(futureDate.getDate() + 7);
+      
       const response = await apiRequest('POST', '/api/payment-sessions', {
-        consultationDate: data.consultationDate.toISOString(),
+        consultationDate: futureDate.toISOString(),
         planType: 'clinical',
       }) as unknown as PaymentSession;
       return response;
@@ -71,22 +77,6 @@ export default function ConsultationBooking() {
       });
     },
   });
-
-  const handleDateSelect = (date: Date) => {
-    setConsultationDate(date);
-  };
-
-  const handleBookingConfirm = () => {
-    if (!consultationDate) {
-      toast({
-        title: 'Please select a date',
-        description: 'Choose a consultation date to continue',
-        variant: 'destructive',
-      });
-      return;
-    }
-    createSessionMutation.mutate({ consultationDate });
-  };
 
   const handleCharacterComplete = (characterData: { characterImageUrl?: string; characterType?: string }) => {
     updateCharacterMutation.mutate(characterData);
@@ -157,63 +147,66 @@ export default function ConsultationBooking() {
     );
   }
 
-  if (currentStep === 'booking') {
-    return (
-      <div className="min-h-screen flex flex-col">
-        <Header />
-        <main className="flex-1 py-16">
-          <div className="container mx-auto px-4 md:px-6">
-            <div className="max-w-4xl mx-auto space-y-8">
-              <div className="text-center space-y-3">
-                <Badge className="bg-chart-4 text-white border-0" data-testid="badge-step-booking">
-                  Step 1 of 3
-                </Badge>
-                <h1 className="font-display text-3xl md:text-4xl font-bold" data-testid="text-booking-title">
-                  Select Your Consultation Date
-                </h1>
-                <p className="text-lg text-muted-foreground" data-testid="text-booking-subtitle">
-                  Choose a convenient time for your physician consultation
-                </p>
-              </div>
-
-              <BookingCalendar onDateSelect={handleDateSelect} />
-
-              {consultationDate && (
-                <Card className="border-primary/50">
-                  <CardContent className="p-6">
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <p className="text-sm text-muted-foreground">Selected Date</p>
-                        <p className="font-semibold" data-testid="text-selected-date">
-                          {consultationDate.toLocaleDateString('en-US', {
-                            weekday: 'long',
-                            year: 'numeric',
-                            month: 'long',
-                            day: 'numeric',
-                          })}
-                        </p>
-                      </div>
-                      <Button
-                        size="lg"
-                        onClick={handleBookingConfirm}
-                        disabled={createSessionMutation.isPending}
-                        data-testid="button-confirm-booking"
-                      >
-                        {createSessionMutation.isPending ? 'Processing...' : 'Continue'}
-                      </Button>
-                    </div>
-                  </CardContent>
-                </Card>
-              )}
-            </div>
-          </div>
-        </main>
-        <Footer />
-      </div>
-    );
-  }
-
   if (currentStep === 'character') {
+    // Show loading state while creating session
+    if (createSessionMutation.isPending) {
+      return (
+        <div className="min-h-screen flex flex-col">
+          <Header />
+          <main className="flex-1 flex items-center justify-center">
+            <div className="text-center space-y-4">
+              <div className="animate-spin h-8 w-8 border-4 border-primary border-t-transparent rounded-full mx-auto" />
+              <p className="text-muted-foreground">Setting up your consultation...</p>
+            </div>
+          </main>
+          <Footer />
+        </div>
+      );
+    }
+
+    // Show error state with retry option if session creation failed
+    if (createSessionMutation.isError && !sessionId) {
+      return (
+        <div className="min-h-screen flex flex-col">
+          <Header />
+          <main className="flex-1 flex items-center justify-center p-4">
+            <Card className="max-w-md w-full">
+              <CardContent className="p-8 space-y-6 text-center">
+                <div className="space-y-2">
+                  <h2 className="font-display text-2xl font-semibold text-destructive">Connection Error</h2>
+                  <p className="text-muted-foreground">
+                    Failed to set up your consultation session. Please try again.
+                  </p>
+                </div>
+                <div className="flex flex-col gap-3">
+                  <Button
+                    size="lg"
+                    className="w-full"
+                    onClick={() => createSessionMutation.mutate()}
+                    data-testid="button-retry-session"
+                  >
+                    Retry
+                  </Button>
+                  <Button
+                    size="lg"
+                    variant="outline"
+                    className="w-full"
+                    onClick={() => navigate('/')}
+                    data-testid="button-back-home"
+                  >
+                    <ArrowLeft className="mr-2 h-4 w-4" />
+                    Back to Home
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+          </main>
+          <Footer />
+        </div>
+      );
+    }
+
+    // Show character creation once session is created
     return (
       <div className="min-h-screen flex flex-col">
         <Header />
@@ -222,7 +215,7 @@ export default function ConsultationBooking() {
             <div className="max-w-4xl mx-auto space-y-8">
               <div className="text-center">
                 <Badge className="bg-chart-4 text-white border-0" data-testid="badge-step-character">
-                  Step 2 of 3
+                  Step 1 of 2
                 </Badge>
               </div>
               <CharacterCreation
@@ -246,7 +239,7 @@ export default function ConsultationBooking() {
             <div className="max-w-2xl mx-auto space-y-8">
               <div className="text-center space-y-3">
                 <Badge className="bg-chart-4 text-white border-0" data-testid="badge-step-payment">
-                  Step 3 of 3
+                  Step 2 of 2
                 </Badge>
                 <h2 className="font-display text-2xl md:text-3xl font-semibold" data-testid="text-payment-title">
                   Complete Payment
