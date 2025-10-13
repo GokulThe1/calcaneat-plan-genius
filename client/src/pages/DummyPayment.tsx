@@ -38,7 +38,7 @@ export default function DummyPayment() {
     setIsSuccess(true);
 
     setTimeout(() => {
-      navigate('/dashboard');
+      navigate('/payment-success');
     }, 2000);
   };
 

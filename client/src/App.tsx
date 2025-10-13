@@ -11,6 +11,7 @@ import ClinicalPlan from "@/pages/ClinicalPlan";
 import ConsultationBooking from "@/pages/ConsultationBooking";
 import SignupCharacter from "@/pages/SignupCharacter";
 import DummyPayment from "@/pages/DummyPayment";
+import PaymentSuccess from "@/pages/PaymentSuccess";
 import Dashboard from "@/pages/Dashboard";
 import Admin from "@/pages/Admin";
 import Kitchen from "@/pages/Kitchen";
@@ -30,6 +31,7 @@ function Router() {
           <Route path="/book-consultation" component={ConsultationBooking} />
           <Route path="/signup-character" component={SignupCharacter} />
           <Route path="/payment" component={DummyPayment} />
+          <Route path="/payment-success" component={PaymentSuccess} />
           <Route component={NotFound} />
         </>
       ) : (
@@ -40,6 +42,7 @@ function Router() {
           <Route path="/book-consultation" component={ConsultationBooking} />
           <Route path="/signup-character" component={SignupCharacter} />
           <Route path="/payment" component={DummyPayment} />
+          <Route path="/payment-success" component={PaymentSuccess} />
           <Route path="/dashboard" component={Dashboard} />
           <Route path="/admin" component={Admin} />
           <Route path="/kitchen" component={Kitchen} />
