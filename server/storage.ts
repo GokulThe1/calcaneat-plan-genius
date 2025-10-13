@@ -1,4 +1,4 @@
-import { type User, type UpsertUser, type InsertUser, type CustomerProfile, type InsertCustomerProfile, type Subscription, type InsertSubscription, type Milestone, type InsertMilestone, type Report, type InsertReport, type Consultation, type InsertConsultation, type Order, type InsertOrder } from "@shared/schema";
+import { type User, type UpsertUser, type InsertUser, type CustomerProfile, type InsertCustomerProfile, type Subscription, type InsertSubscription, type Milestone, type InsertMilestone, type Report, type InsertReport, type Consultation, type InsertConsultation, type Order, type InsertOrder, type PaymentSession, type InsertPaymentSession } from "@shared/schema";
 import { randomUUID } from "crypto";
 
 export interface IStorage {
@@ -21,6 +21,10 @@ export interface IStorage {
   getOrdersByStatus(status: string): Promise<Order[]>;
   updateOrderStatus(id: string, status: string): Promise<Order | undefined>;
   createOrder(order: InsertOrder): Promise<Order>;
+  
+  createPaymentSession(session: InsertPaymentSession): Promise<PaymentSession>;
+  getPaymentSession(id: string): Promise<PaymentSession | undefined>;
+  updateUser(id: string, updates: Partial<User>): Promise<User | undefined>;
 }
 
 export class MemStorage implements IStorage {
@@ -29,6 +33,7 @@ export class MemStorage implements IStorage {
   private milestones: Map<string, Milestone>;
   private reports: Map<string, Report>;
   private orders: Map<string, Order>;
+  private paymentSessions: Map<string, PaymentSession>;
 
   constructor() {
     this.users = new Map();
@@ -36,6 +41,7 @@ export class MemStorage implements IStorage {
     this.milestones = new Map();
     this.reports = new Map();
     this.orders = new Map();
+    this.paymentSessions = new Map();
   }
 
   async getUser(id: string): Promise<User | undefined> {
@@ -56,6 +62,8 @@ export class MemStorage implements IStorage {
       firstName: upsertUser.firstName || null,
       lastName: upsertUser.lastName || null,
       profileImageUrl: upsertUser.profileImageUrl || null,
+      characterImageUrl: upsertUser.characterImageUrl || existingUser?.characterImageUrl || null,
+      characterType: upsertUser.characterType || existingUser?.characterType || null,
       role: upsertUser.role || existingUser?.role || 'customer',
       createdAt: existingUser?.createdAt || new Date(),
       updatedAt: new Date(),
@@ -72,6 +80,8 @@ export class MemStorage implements IStorage {
       firstName: insertUser.firstName || null,
       lastName: insertUser.lastName || null,
       profileImageUrl: insertUser.profileImageUrl || null,
+      characterImageUrl: insertUser.characterImageUrl || null,
+      characterType: insertUser.characterType || null,
       role: insertUser.role || 'customer',
       createdAt: new Date(),
       updatedAt: new Date(),
@@ -212,6 +222,40 @@ export class MemStorage implements IStorage {
     };
     this.orders.set(id, order);
     return order;
+  }
+
+  async createPaymentSession(insertSession: InsertPaymentSession): Promise<PaymentSession> {
+    const id = randomUUID();
+    const session: PaymentSession = {
+      id,
+      userId: insertSession.userId,
+      consultationDate: insertSession.consultationDate,
+      planType: insertSession.planType,
+      amount: insertSession.amount,
+      status: insertSession.status || 'pending',
+      stripeSessionId: insertSession.stripeSessionId || null,
+      completedAt: null,
+      createdAt: new Date(),
+    };
+    this.paymentSessions.set(id, session);
+    return session;
+  }
+
+  async getPaymentSession(id: string): Promise<PaymentSession | undefined> {
+    return this.paymentSessions.get(id);
+  }
+
+  async updateUser(id: string, updates: Partial<User>): Promise<User | undefined> {
+    const user = this.users.get(id);
+    if (!user) return undefined;
+    
+    const updated: User = {
+      ...user,
+      ...updates,
+      updatedAt: new Date(),
+    };
+    this.users.set(id, updated);
+    return updated;
   }
 }
 

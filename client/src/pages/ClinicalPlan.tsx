@@ -90,7 +90,7 @@ export default function ClinicalPlan() {
                     </div>
 
                     <div className="flex flex-col sm:flex-row gap-3 pt-4">
-                      <Link href="/dashboard" className="flex-1">
+                      <Link href="/book-consultation" className="flex-1">
                         <Button size="lg" className="w-full" data-testid="button-book-consultation">
                           <Calendar className="mr-2 h-5 w-5" />
                           Book Your First Consultation

@@ -202,6 +202,59 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  app.post('/api/payment-sessions', isAuthenticated, async (req: any, res) => {
+    try {
+      const sessionSchema = z.object({
+        consultationDate: z.string(),
+        planType: z.string(),
+        amount: z.number(),
+      });
+      const data = sessionSchema.parse(req.body);
+      
+      const userId = req.user.claims.sub;
+      const session = await storage.createPaymentSession({
+        userId,
+        consultationDate: new Date(data.consultationDate),
+        planType: data.planType,
+        amount: data.amount,
+        status: 'pending',
+      });
+      
+      res.json(session);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ message: "Invalid request data", errors: error.errors });
+      }
+      console.error("Error creating payment session:", error);
+      res.status(500).json({ message: "Failed to create payment session" });
+    }
+  });
+
+  app.patch('/api/user/character', isAuthenticated, async (req: any, res) => {
+    try {
+      const characterSchema = z.object({
+        characterImageUrl: z.string().optional(),
+        characterType: z.string().optional(),
+      });
+      const data = characterSchema.parse(req.body);
+      
+      const userId = req.user.claims.sub;
+      const user = await storage.updateUser(userId, data);
+      
+      if (!user) {
+        return res.status(404).json({ message: "User not found" });
+      }
+      
+      res.json(user);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ message: "Invalid request data", errors: error.errors });
+      }
+      console.error("Error updating character:", error);
+      res.status(500).json({ message: "Failed to update character" });
+    }
+  });
+
   const httpServer = createServer(app);
 
   return httpServer;

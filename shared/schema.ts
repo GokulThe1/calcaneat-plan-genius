@@ -19,6 +19,8 @@ export const users = pgTable("users", {
   firstName: varchar("first_name"),
   lastName: varchar("last_name"),
   profileImageUrl: varchar("profile_image_url"),
+  characterImageUrl: varchar("character_image_url"),
+  characterType: text("character_type"),
   role: text("role").notNull().default('customer'),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
@@ -136,6 +138,18 @@ export const orders = pgTable("orders", {
   createdAt: timestamp("created_at").defaultNow(),
 });
 
+export const paymentSessions = pgTable("payment_sessions", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").notNull().references(() => users.id),
+  consultationDate: timestamp("consultation_date").notNull(),
+  planType: text("plan_type").notNull(),
+  amount: integer("amount").notNull(),
+  status: text("status").notNull().default('pending'),
+  stripeSessionId: text("stripe_session_id"),
+  completedAt: timestamp("completed_at"),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
 export const upsertUserSchema = createInsertSchema(users).omit({
   createdAt: true,
   updatedAt: true,
@@ -189,6 +203,11 @@ export const insertOrderSchema = createInsertSchema(orders).omit({
   createdAt: true,
 });
 
+export const insertPaymentSessionSchema = createInsertSchema(paymentSessions).omit({
+  id: true,
+  createdAt: true,
+});
+
 export type UpsertUser = z.infer<typeof upsertUserSchema>;
 export type InsertUser = z.infer<typeof insertUserSchema>;
 export type User = typeof users.$inferSelect;
@@ -216,3 +235,6 @@ export type Meal = typeof meals.$inferSelect;
 
 export type InsertOrder = z.infer<typeof insertOrderSchema>;
 export type Order = typeof orders.$inferSelect;
+
+export type InsertPaymentSession = z.infer<typeof insertPaymentSessionSchema>;
+export type PaymentSession = typeof paymentSessions.$inferSelect;

@@ -48,9 +48,34 @@ const availableDates: DaySlots[] = [
   },
 ];
 
-export function BookingCalendar() {
+interface BookingCalendarProps {
+  onDateSelect?: (date: Date) => void;
+}
+
+export function BookingCalendar({ onDateSelect }: BookingCalendarProps = {}) {
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
   const [selectedTime, setSelectedTime] = useState<string | null>(null);
+
+  const handleDateChange = (date: string) => {
+    setSelectedDate(date);
+    setSelectedTime(null);
+  };
+
+  const handleTimeChange = (time: string) => {
+    setSelectedTime(time);
+    if (selectedDate && onDateSelect) {
+      const fullDateTime = new Date(`${selectedDate}T${convertTo24Hour(time)}`);
+      onDateSelect(fullDateTime);
+    }
+  };
+
+  const convertTo24Hour = (time: string): string => {
+    const [timeStr, period] = time.split(' ');
+    let [hours, minutes] = timeStr.split(':').map(Number);
+    if (period === 'PM' && hours !== 12) hours += 12;
+    if (period === 'AM' && hours === 12) hours = 0;
+    return `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:00`;
+  };
 
   const handleBooking = () => {
     if (selectedDate && selectedTime) {
@@ -81,10 +106,7 @@ export function BookingCalendar() {
                   key={dateSlot.date}
                   variant={selectedDate === dateSlot.date ? 'default' : 'outline'}
                   className="w-full justify-start"
-                  onClick={() => {
-                    setSelectedDate(dateSlot.date);
-                    setSelectedTime(null);
-                  }}
+                  onClick={() => handleDateChange(dateSlot.date)}
                   data-testid={`button-date-${dateSlot.date}`}
                 >
                   <CalendarIcon className="mr-2 h-4 w-4" />
@@ -106,7 +128,7 @@ export function BookingCalendar() {
                       variant={selectedTime === slot.time ? 'default' : 'outline'}
                       disabled={!slot.available}
                       className="w-full"
-                      onClick={() => setSelectedTime(slot.time)}
+                      onClick={() => handleTimeChange(slot.time)}
                       data-testid={`button-time-${slot.time.replace(/\s/g, '-')}`}
                     >
                       <Clock className="mr-2 h-4 w-4" />
