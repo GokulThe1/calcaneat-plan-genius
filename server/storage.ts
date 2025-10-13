@@ -234,7 +234,7 @@ export class MemStorage implements IStorage {
       planType: insertSession.planType,
       amount: insertSession.amount,
       status: insertSession.status || 'pending',
-      stripeSessionId: insertSession.stripeSessionId || null,
+      razorpayOrderId: insertSession.razorpayOrderId || null,
       completedAt: null,
       createdAt: new Date(),
     };

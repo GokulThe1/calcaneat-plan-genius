@@ -310,6 +310,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
         },
       });
 
+      // Persist Razorpay order ID to the payment session
+      await storage.updatePaymentSession(sessionId, { razorpayOrderId: order.id });
+
       res.json({ 
         orderId: order.id,
         amount: order.amount,
@@ -335,6 +338,29 @@ export async function registerRoutes(app: Express): Promise<Server> {
       });
       const { razorpay_order_id, razorpay_payment_id, razorpay_signature, sessionId } = verifySchema.parse(req.body);
 
+      const userId = req.user.claims.sub;
+
+      // Validate session ownership and status
+      const session = await storage.getPaymentSession(sessionId);
+      
+      if (!session) {
+        return res.status(404).json({ message: "Payment session not found" });
+      }
+      
+      if (session.userId !== userId) {
+        return res.status(403).json({ message: "Unauthorized - session belongs to different user" });
+      }
+      
+      if (session.status === 'completed') {
+        return res.status(400).json({ message: "Payment session already completed" });
+      }
+
+      // Verify the order ID matches the session's stored order ID
+      if (!session.razorpayOrderId || session.razorpayOrderId !== razorpay_order_id) {
+        return res.status(400).json({ message: "Order ID mismatch - payment not authorized for this session" });
+      }
+
+      // Verify payment signature
       const crypto = await import('crypto');
       const expectedSignature = crypto
         .createHmac('sha256', process.env.RAZORPAY_KEY_SECRET!)

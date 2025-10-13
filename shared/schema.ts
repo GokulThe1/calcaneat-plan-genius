@@ -145,7 +145,7 @@ export const paymentSessions = pgTable("payment_sessions", {
   planType: text("plan_type").notNull(),
   amount: integer("amount").notNull(),
   status: text("status").notNull().default('pending'),
-  stripeSessionId: text("stripe_session_id"),
+  razorpayOrderId: text("razorpay_order_id"),
   completedAt: timestamp("completed_at"),
   createdAt: timestamp("created_at").defaultNow(),
 });
