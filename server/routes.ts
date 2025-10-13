@@ -4,6 +4,14 @@ import { storage } from "./storage";
 import { setupAuth, isAuthenticated } from "./replitAuth";
 import { insertReportSchema, insertOrderSchema } from "@shared/schema";
 import { z } from "zod";
+import Stripe from "stripe";
+
+if (!process.env.STRIPE_SECRET_KEY) {
+  throw new Error('Missing required Stripe secret: STRIPE_SECRET_KEY');
+}
+const stripe = new Stripe(process.env.STRIPE_SECRET_KEY, {
+  apiVersion: "2025-09-30.clover",
+});
 
 const isAdmin: RequestHandler = async (req: any, res, next) => {
   if (!req.user) {
@@ -206,17 +214,27 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const sessionSchema = z.object({
         consultationDate: z.string(),
-        planType: z.string(),
-        amount: z.number(),
+        planType: z.enum(['clinical', 'ai']),
       });
       const data = sessionSchema.parse(req.body);
+      
+      // Server-side pricing based on plan type
+      const planPricing: Record<string, number> = {
+        'clinical': 500000, // ₹5,000 in paise
+        'ai': 0, // Free for AI plan
+      };
+      
+      const amount = planPricing[data.planType];
+      if (amount === undefined) {
+        return res.status(400).json({ message: "Invalid plan type" });
+      }
       
       const userId = req.user.claims.sub;
       const session = await storage.createPaymentSession({
         userId,
         consultationDate: new Date(data.consultationDate),
         planType: data.planType,
-        amount: data.amount,
+        amount, // Server-determined amount, not client-provided
         status: 'pending',
       });
       
@@ -252,6 +270,50 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       console.error("Error updating character:", error);
       res.status(500).json({ message: "Failed to update character" });
+    }
+  });
+
+  app.post('/api/create-payment-intent', isAuthenticated, async (req: any, res) => {
+    try {
+      const paymentSchema = z.object({
+        sessionId: z.string(),
+      });
+      const { sessionId } = paymentSchema.parse(req.body);
+
+      const userId = req.user.claims.sub;
+      
+      // Fetch payment session to verify ownership and get amount
+      const session = await storage.getPaymentSession(sessionId);
+      
+      if (!session) {
+        return res.status(404).json({ message: "Payment session not found" });
+      }
+      
+      if (session.userId !== userId) {
+        return res.status(403).json({ message: "Unauthorized - session belongs to different user" });
+      }
+      
+      if (session.status === 'completed') {
+        return res.status(400).json({ message: "Payment session already completed" });
+      }
+
+      // Use server-side amount from the session, not client-provided
+      const paymentIntent = await stripe.paymentIntents.create({
+        amount: Math.round(session.amount), // Amount from server-side session
+        currency: "inr",
+        metadata: {
+          sessionId,
+          userId,
+        },
+      });
+
+      res.json({ clientSecret: paymentIntent.client_secret });
+    } catch (error: any) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ message: "Invalid request data", errors: error.errors });
+      }
+      console.error("Error creating payment intent:", error);
+      res.status(500).json({ message: "Error creating payment intent: " + error.message });
     }
   });
 

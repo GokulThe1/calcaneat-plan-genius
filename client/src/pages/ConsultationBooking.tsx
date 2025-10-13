@@ -3,6 +3,7 @@ import { useLocation } from 'wouter';
 import { useAuth } from '@/hooks/useAuth';
 import { BookingCalendar } from '@/components/BookingCalendar';
 import { CharacterCreation } from '@/components/CharacterCreation';
+import { PaymentCheckout } from '@/components/PaymentCheckout';
 import { Header } from '@/components/Header';
 import { Footer } from '@/components/Footer';
 import { Card, CardContent } from '@/components/ui/card';
@@ -39,7 +40,6 @@ export default function ConsultationBooking() {
       const response = await apiRequest('POST', '/api/payment-sessions', {
         consultationDate: data.consultationDate.toISOString(),
         planType: 'clinical',
-        amount: 500000,
       }) as unknown as PaymentSession;
       return response;
     },
@@ -241,34 +241,40 @@ export default function ConsultationBooking() {
     return (
       <div className="min-h-screen flex flex-col">
         <Header />
-        <main className="flex-1 flex items-center justify-center p-4">
-          <Card className="max-w-md w-full">
-            <CardContent className="p-8 space-y-6 text-center">
-              <Badge className="bg-chart-4 text-white border-0" data-testid="badge-step-payment">
-                Step 3 of 3
-              </Badge>
-              <div className="space-y-2">
-                <h2 className="font-display text-2xl font-semibold" data-testid="text-payment-title">
+        <main className="flex-1 py-16">
+          <div className="container mx-auto px-4 md:px-6">
+            <div className="max-w-2xl mx-auto space-y-8">
+              <div className="text-center space-y-3">
+                <Badge className="bg-chart-4 text-white border-0" data-testid="badge-step-payment">
+                  Step 3 of 3
+                </Badge>
+                <h2 className="font-display text-2xl md:text-3xl font-semibold" data-testid="text-payment-title">
                   Complete Payment
                 </h2>
                 <p className="text-muted-foreground" data-testid="text-payment-subtitle">
-                  Secure payment gateway integration coming soon
+                  Secure your consultation booking
                 </p>
               </div>
-              <div className="p-6 bg-muted/50 rounded-md">
+
+              <div className="p-6 bg-muted/50 rounded-md text-center">
                 <p className="font-mono text-3xl font-semibold" data-testid="text-payment-amount">₹5,000</p>
                 <p className="text-sm text-muted-foreground mt-1">Initial Consultation Fee</p>
               </div>
-              <Button
-                size="lg"
-                className="w-full"
-                onClick={() => navigate('/dashboard')}
-                data-testid="button-proceed-dashboard"
-              >
-                Proceed to Dashboard
-              </Button>
-            </CardContent>
-          </Card>
+
+              {sessionId && (
+                <PaymentCheckout
+                  sessionId={sessionId}
+                  onSuccess={() => {
+                    toast({
+                      title: 'Payment Successful',
+                      description: 'Your consultation has been booked!',
+                    });
+                    navigate('/dashboard');
+                  }}
+                />
+              )}
+            </div>
+          </div>
         </main>
         <Footer />
       </div>
