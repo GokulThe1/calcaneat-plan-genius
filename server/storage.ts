@@ -1,9 +1,10 @@
-import { type User, type InsertUser, type CustomerProfile, type InsertCustomerProfile, type Subscription, type InsertSubscription, type Milestone, type InsertMilestone, type Report, type InsertReport, type Consultation, type InsertConsultation } from "@shared/schema";
+import { type User, type UpsertUser, type InsertUser, type CustomerProfile, type InsertCustomerProfile, type Subscription, type InsertSubscription, type Milestone, type InsertMilestone, type Report, type InsertReport, type Consultation, type InsertConsultation } from "@shared/schema";
 import { randomUUID } from "crypto";
 
 export interface IStorage {
   getUser(id: string): Promise<User | undefined>;
   getUserByEmail(email: string): Promise<User | undefined>;
+  upsertUser(user: UpsertUser): Promise<User>;
   createUser(user: InsertUser): Promise<User>;
   
   getCustomerProfile(userId: string): Promise<CustomerProfile | undefined>;
@@ -40,14 +41,33 @@ export class MemStorage implements IStorage {
     );
   }
 
+  async upsertUser(upsertUser: UpsertUser): Promise<User> {
+    const existingUser = upsertUser.id ? this.users.get(upsertUser.id) : undefined;
+    const user: User = {
+      id: upsertUser.id || randomUUID(),
+      email: upsertUser.email || null,
+      firstName: upsertUser.firstName || null,
+      lastName: upsertUser.lastName || null,
+      profileImageUrl: upsertUser.profileImageUrl || null,
+      role: upsertUser.role || existingUser?.role || 'customer',
+      createdAt: existingUser?.createdAt || new Date(),
+      updatedAt: new Date(),
+    };
+    this.users.set(user.id, user);
+    return user;
+  }
+
   async createUser(insertUser: InsertUser): Promise<User> {
     const id = randomUUID();
     const user: User = { 
-      ...insertUser, 
       id,
+      email: insertUser.email || null,
+      firstName: insertUser.firstName || null,
+      lastName: insertUser.lastName || null,
+      profileImageUrl: insertUser.profileImageUrl || null,
       role: insertUser.role || 'customer',
-      password: insertUser.password || null,
-      createdAt: new Date()
+      createdAt: new Date(),
+      updatedAt: new Date(),
     };
     this.users.set(id, user);
     return user;

@@ -4,6 +4,7 @@ import { QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { ThemeProvider } from "@/components/ThemeProvider";
+import { useAuth } from "@/hooks/useAuth";
 import Home from "@/pages/Home";
 import AIPlan from "@/pages/AIPlan";
 import ClinicalPlan from "@/pages/ClinicalPlan";
@@ -11,13 +12,26 @@ import Dashboard from "@/pages/Dashboard";
 import NotFound from "@/pages/not-found";
 
 function Router() {
+  const { isAuthenticated, isLoading } = useAuth();
+
   return (
     <Switch>
-      <Route path="/" component={Home} />
-      <Route path="/ai-plan" component={AIPlan} />
-      <Route path="/clinical-plan" component={ClinicalPlan} />
-      <Route path="/dashboard" component={Dashboard} />
-      <Route component={NotFound} />
+      {isLoading || !isAuthenticated ? (
+        <>
+          <Route path="/" component={Home} />
+          <Route path="/ai-plan" component={AIPlan} />
+          <Route path="/clinical-plan" component={ClinicalPlan} />
+          <Route component={NotFound} />
+        </>
+      ) : (
+        <>
+          <Route path="/" component={Dashboard} />
+          <Route path="/ai-plan" component={AIPlan} />
+          <Route path="/clinical-plan" component={ClinicalPlan} />
+          <Route path="/dashboard" component={Dashboard} />
+          <Route component={NotFound} />
+        </>
+      )}
     </Switch>
   );
 }

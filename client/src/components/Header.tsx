@@ -1,12 +1,22 @@
 import { Button } from '@/components/ui/button';
-import { Moon, Sun, Menu } from 'lucide-react';
+import { Moon, Sun, Menu, LogOut } from 'lucide-react';
 import { useTheme } from './ThemeProvider';
+import { useAuth } from '@/hooks/useAuth';
 import { useState } from 'react';
 import { Link } from 'wouter';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 
 export function Header() {
   const { theme, setTheme } = useTheme();
+  const { user, isAuthenticated } = useAuth();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+
+  const getInitials = () => {
+    if (!user) return 'U';
+    const firstName = user.firstName || '';
+    const lastName = user.lastName || '';
+    return (firstName.charAt(0) + lastName.charAt(0)).toUpperCase() || 'U';
+  };
 
   return (
     <header className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
@@ -41,14 +51,35 @@ export function Header() {
               {theme === 'light' ? <Moon className="h-5 w-5" /> : <Sun className="h-5 w-5" />}
             </Button>
             
-            <div className="hidden md:flex items-center gap-2">
-              <Button variant="ghost" data-testid="button-login">
-                Log In
-              </Button>
-              <Button data-testid="button-get-started">
-                Get Started
-              </Button>
-            </div>
+            {isAuthenticated ? (
+              <div className="hidden md:flex items-center gap-3">
+                <Link href="/dashboard">
+                  <Avatar className="h-8 w-8" data-testid="avatar-user">
+                    <AvatarImage src={user?.profileImageUrl || undefined} />
+                    <AvatarFallback>{getInitials()}</AvatarFallback>
+                  </Avatar>
+                </Link>
+                <a href="/api/logout">
+                  <Button variant="ghost" size="sm" data-testid="button-logout">
+                    <LogOut className="h-4 w-4 mr-2" />
+                    Log Out
+                  </Button>
+                </a>
+              </div>
+            ) : (
+              <div className="hidden md:flex items-center gap-2">
+                <a href="/api/login">
+                  <Button variant="ghost" data-testid="button-login">
+                    Log In
+                  </Button>
+                </a>
+                <a href="/api/login">
+                  <Button data-testid="button-get-started">
+                    Get Started
+                  </Button>
+                </a>
+              </div>
+            )}
 
             <Button
               variant="ghost"
@@ -74,14 +105,33 @@ export function Header() {
               <Link href="/#testimonials" className="text-sm font-medium hover-elevate px-3 py-2 rounded-md">
                 Testimonials
               </Link>
-              <div className="flex gap-2 mt-2">
-                <Button variant="ghost" className="flex-1" data-testid="button-mobile-login">
-                  Log In
-                </Button>
-                <Button className="flex-1" data-testid="button-mobile-get-started">
-                  Get Started
-                </Button>
-              </div>
+              {isAuthenticated ? (
+                <div className="flex gap-2 mt-2">
+                  <Link href="/dashboard" className="flex-1">
+                    <Button variant="outline" className="w-full" data-testid="button-mobile-dashboard">
+                      Dashboard
+                    </Button>
+                  </Link>
+                  <a href="/api/logout" className="flex-1">
+                    <Button variant="ghost" className="w-full" data-testid="button-mobile-logout">
+                      Log Out
+                    </Button>
+                  </a>
+                </div>
+              ) : (
+                <div className="flex gap-2 mt-2">
+                  <a href="/api/login" className="flex-1">
+                    <Button variant="ghost" className="w-full" data-testid="button-mobile-login">
+                      Log In
+                    </Button>
+                  </a>
+                  <a href="/api/login" className="flex-1">
+                    <Button className="w-full" data-testid="button-mobile-get-started">
+                      Get Started
+                    </Button>
+                  </a>
+                </div>
+              )}
             </nav>
           </div>
         )}
