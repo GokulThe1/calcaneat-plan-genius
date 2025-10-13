@@ -18,6 +18,7 @@ export const users = pgTable("users", {
   email: varchar("email").unique(),
   firstName: varchar("first_name"),
   lastName: varchar("last_name"),
+  phone: varchar("phone"),
   profileImageUrl: varchar("profile_image_url"),
   characterImageUrl: varchar("character_image_url"),
   characterType: text("character_type"),
@@ -92,7 +93,9 @@ export const consultations = pgTable("consultations", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   userId: varchar("user_id").notNull().references(() => users.id),
   consultantId: varchar("consultant_id").references(() => users.id),
-  scheduledAt: timestamp("scheduled_at").notNull(),
+  doctorName: text("doctor_name"),
+  scheduledDate: text("scheduled_date").notNull(),
+  scheduledTime: text("scheduled_time").notNull(),
   status: text("status").notNull().default('scheduled'),
   notes: text("notes"),
   meetingType: text("meeting_type").notNull(),
@@ -141,12 +144,22 @@ export const orders = pgTable("orders", {
 export const paymentSessions = pgTable("payment_sessions", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   userId: varchar("user_id").notNull().references(() => users.id),
-  consultationDate: timestamp("consultation_date").notNull(),
+  consultationDate: text("consultation_date").notNull(),
   planType: text("plan_type").notNull(),
   amount: integer("amount").notNull(),
   status: text("status").notNull().default('pending'),
-  razorpayOrderId: text("razorpay_order_id"),
+  paymentMethod: text("payment_method").default('dummy'),
   completedAt: timestamp("completed_at"),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const notifications = pgTable("notifications", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").notNull().references(() => users.id),
+  title: text("title").notNull(),
+  message: text("message").notNull(),
+  type: text("type").notNull().default('info'),
+  isRead: boolean("is_read").default(false),
   createdAt: timestamp("created_at").defaultNow(),
 });
 
@@ -208,6 +221,11 @@ export const insertPaymentSessionSchema = createInsertSchema(paymentSessions).om
   createdAt: true,
 });
 
+export const insertNotificationSchema = createInsertSchema(notifications).omit({
+  id: true,
+  createdAt: true,
+});
+
 export type UpsertUser = z.infer<typeof upsertUserSchema>;
 export type InsertUser = z.infer<typeof insertUserSchema>;
 export type User = typeof users.$inferSelect;
@@ -238,3 +256,6 @@ export type Order = typeof orders.$inferSelect;
 
 export type InsertPaymentSession = z.infer<typeof insertPaymentSessionSchema>;
 export type PaymentSession = typeof paymentSessions.$inferSelect;
+
+export type InsertNotification = z.infer<typeof insertNotificationSchema>;
+export type Notification = typeof notifications.$inferSelect;

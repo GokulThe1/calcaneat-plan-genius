@@ -1,0 +1,230 @@
+⚙️ Overall Goal
+
+Create a complete user journey for Calcaneat’s Clinical-Level Guided Plan, where customers progress through five medical-to-nutrition stages.
+Use a dummy payment gateway during testing (to be replaced later with Razorpay or Stripe when going live).
+
+🧩 1. Landing Page (Plan Selection)
+Components:
+
+Header Section with plan comparison (AI-Assisted Plan vs. Clinical-Level Guided Plan).
+
+CTA Button: “Start My Clinical Plan”.
+
+Functionality:
+
+On clicking the CTA, navigate to /book-consultation.
+
+📅 2. Consultation Booking Page (/book-consultation)
+UI:
+
+A calendar for date and time selection.
+
+Doctor name and slot availability.
+
+Summary card displaying:
+
+Plan type
+
+Consultation fee
+
+Estimated total
+
+Logic:
+
+Allow only future dates (min 24h ahead).
+
+Store booking info temporarily in local storage or database (consultationData object).
+
+Example consultationData object:
+{
+  "planType": "Clinical-Level Guided",
+  "date": "2025-10-20",
+  "time": "10:30 AM",
+  "doctor": "Dr. Priya Sharma"
+}
+
+Button:
+
+➡️ “Continue to Sign Up”
+
+🧍‍♀️ 3. Sign-Up & Character Creation (/signup-character)
+UI:
+
+Two-step sign-up flow:
+
+User Account Form
+
+Name, email, phone number, password
+
+Character Creation Screen
+
+Option A: Upload a selfie → AI generates avatar (placeholder for now)
+
+Option B: Choose from preset characters (e.g., male/female, chef, athlete, professional)
+
+UI Example:
+
+Use a fun, Snapchat-style card carousel to show character options.
+
+Show real-time preview on the right side.
+
+Data to store in database:
+{
+  "userId": "12345",
+  "name": "John Doe",
+  "email": "john@example.com",
+  "avatarType": "preset_chef",
+  "plan": "Clinical-Level Guided",
+  "consultationData": { ... }
+}
+
+Button:
+
+➡️ “Proceed to Payment”
+
+💳 4. Dummy Payment Gateway (/payment)
+UI:
+
+Clean, simple card with:
+
+Plan summary
+
+Amount due (e.g., ₹1,999)
+
+Dummy “Card Payment” fields:
+
+Name on card
+
+Card number
+
+Expiry date
+
+CVV
+
+Dummy Logic:
+When the user clicks Pay Now, trigger a 2-second loading spinner, then display:
+
+✅ “Payment Successful!”
+
+Button: “View My Dashboard”
+
+Code Example:
+setTimeout(() => {
+  navigate("/dashboard");
+}, 2000);
+
+🏁 5. User Dashboard (/dashboard)
+UI:
+
+Top Bar: Shows user name + avatar.
+
+Progress Tracker (Horizontal):
+
+5 dots connected by lines:
+
+Physician Consultation 🩺
+
+Test Collection 🧪
+
+Feasibility Discussion 💬
+
+Diet Chart 🥗
+
+Meal Delivery 🚚
+
+The user’s avatar icon moves along this line as they progress.
+
+Functionality:
+
+Highlight current stage.
+
+Each stage is clickable → shows a modal or section with details.
+
+Example:
+
+Clicking “Test Collection” shows:
+
+Lab Technician Assigned: Ramesh K.
+Sample Pickup Date: 22 Oct 2025
+Status: Completed ✅
+
+
+Once a stage is marked “Completed,” the avatar automatically moves to the next milestone.
+
+Backend (mocked for now):
+
+Store progress like this:
+
+{
+  "userId": "12345",
+  "progress": {
+    "consultation": "completed",
+    "testCollection": "completed",
+    "discussion": "pending",
+    "dietChart": "locked",
+    "mealDelivery": "locked"
+  }
+}
+
+📂 6. Reports & Profile Section (/profile)
+Tabs:
+
+My Reports: Lab reports and doctor’s notes (upload mock PDFs for testing).
+
+My Plan: Personalized diet chart preview.
+
+Account Details: Edit name, contact info, avatar, etc.
+
+Example:
+
+Lab Report: “Lipid Profile – Normal Range ✅”
+Physician Notes: “Diet Plan Feasible – Proceed to Nutrition Stage.”
+
+🔔 7. Notifications & Email Flow
+Email Templates:
+
+Booking Confirmation
+
+Payment Success
+
+Stage Completion (Each Step)
+
+Final Welcome Email – Meal Delivery Begins
+
+Notification Bar (Frontend):
+
+Show banners on the dashboard like:
+
+“Your lab test is scheduled for tomorrow at 10 AM.”
+
+🎨 8. Design Guidelines
+
+Theme: White + Pastel Green + Sky Blue
+
+Font: Poppins or Inter
+
+Buttons: Rounded, soft shadows
+
+Avatars: Illustrated 2D style
+
+Progress line: Animated smooth movement when progressing to next stage
+
+🧠 9. Tech Stack Suggestions
+
+Frontend: React + TailwindCSS (or Next.js for scalability)
+
+Backend: Firebase / Supabase (for auth, storage, progress tracking)
+
+Payment (dummy): Simulated endpoint using local state
+
+Avatar generation (later): Integrate with DiceBear or ReadyPlayerMe
+
+✅ Expected Outcome
+
+Once complete:
+
+A user can go from booking → sign-up → dummy payment → dashboard tracking in one continuous flow.
+
+The character-based dashboard visually tracks their progress in real time.
+
+Reports and results are neatly organized under their profile.
