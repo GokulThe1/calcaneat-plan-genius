@@ -10,6 +10,8 @@ import AIPlan from "@/pages/AIPlan";
 import ClinicalPlan from "@/pages/ClinicalPlan";
 import Dashboard from "@/pages/Dashboard";
 import Admin from "@/pages/Admin";
+import Kitchen from "@/pages/Kitchen";
+import Delivery from "@/pages/Delivery";
 import NotFound from "@/pages/not-found";
 
 function Router() {
@@ -31,6 +33,8 @@ function Router() {
           <Route path="/clinical-plan" component={ClinicalPlan} />
           <Route path="/dashboard" component={Dashboard} />
           <Route path="/admin" component={Admin} />
+          <Route path="/kitchen" component={Kitchen} />
+          <Route path="/delivery" component={Delivery} />
           <Route component={NotFound} />
         </>
       )}

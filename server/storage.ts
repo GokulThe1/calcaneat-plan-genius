@@ -1,4 +1,4 @@
-import { type User, type UpsertUser, type InsertUser, type CustomerProfile, type InsertCustomerProfile, type Subscription, type InsertSubscription, type Milestone, type InsertMilestone, type Report, type InsertReport, type Consultation, type InsertConsultation } from "@shared/schema";
+import { type User, type UpsertUser, type InsertUser, type CustomerProfile, type InsertCustomerProfile, type Subscription, type InsertSubscription, type Milestone, type InsertMilestone, type Report, type InsertReport, type Consultation, type InsertConsultation, type Order, type InsertOrder } from "@shared/schema";
 import { randomUUID } from "crypto";
 
 export interface IStorage {
@@ -17,6 +17,10 @@ export interface IStorage {
   
   getUserReports(userId: string): Promise<Report[]>;
   createReport(report: InsertReport): Promise<Report>;
+  
+  getOrdersByStatus(status: string): Promise<Order[]>;
+  updateOrderStatus(id: string, status: string): Promise<Order | undefined>;
+  createOrder(order: InsertOrder): Promise<Order>;
 }
 
 export class MemStorage implements IStorage {
@@ -24,12 +28,14 @@ export class MemStorage implements IStorage {
   private profiles: Map<string, CustomerProfile>;
   private milestones: Map<string, Milestone>;
   private reports: Map<string, Report>;
+  private orders: Map<string, Order>;
 
   constructor() {
     this.users = new Map();
     this.profiles = new Map();
     this.milestones = new Map();
     this.reports = new Map();
+    this.orders = new Map();
   }
 
   async getUser(id: string): Promise<User | undefined> {
@@ -170,6 +176,42 @@ export class MemStorage implements IStorage {
     };
     this.reports.set(id, report);
     return report;
+  }
+
+  async getOrdersByStatus(status: string): Promise<Order[]> {
+    return Array.from(this.orders.values()).filter(
+      (order) => order.status === status
+    );
+  }
+
+  async updateOrderStatus(id: string, status: string): Promise<Order | undefined> {
+    const order = this.orders.get(id);
+    if (!order) return undefined;
+    
+    const updated: Order = {
+      ...order,
+      status,
+      deliveredAt: status === 'delivered' ? new Date() : order.deliveredAt,
+    };
+    this.orders.set(id, updated);
+    return updated;
+  }
+
+  async createOrder(insertOrder: InsertOrder): Promise<Order> {
+    const id = randomUUID();
+    const order: Order = {
+      id,
+      userId: insertOrder.userId,
+      mealPlanId: insertOrder.mealPlanId || null,
+      deliveryDate: insertOrder.deliveryDate,
+      deliveryAddress: insertOrder.deliveryAddress,
+      status: insertOrder.status || 'pending',
+      assignedDeliveryPersonId: insertOrder.assignedDeliveryPersonId || null,
+      deliveredAt: null,
+      createdAt: new Date(),
+    };
+    this.orders.set(id, order);
+    return order;
   }
 }
 
