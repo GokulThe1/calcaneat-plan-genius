@@ -1,5 +1,5 @@
 import { sql } from "drizzle-orm";
-import { pgTable, text, varchar, timestamp, integer, boolean, jsonb, index } from "drizzle-orm/pg-core";
+import { pgTable, text, varchar, timestamp, integer, boolean, jsonb, index, numeric } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
@@ -99,6 +99,76 @@ export const consultations = pgTable("consultations", {
   status: text("status").notNull().default('scheduled'),
   notes: text("notes"),
   meetingType: text("meeting_type").notNull(),
+  consultationFeePaid: numeric("consultation_fee_paid"),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const plans = pgTable("plans", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").notNull().references(() => users.id),
+  type: text("type").default('Clinical'),
+  listPrice: numeric("list_price"),
+  discountAmount: numeric("discount_amount").default('0'),
+  consultationFeeCredited: numeric("consultation_fee_credited").default('0'),
+  finalPayable: numeric("final_payable"),
+  isActive: boolean("is_active").default(false),
+  startDate: text("start_date"),
+  durationDays: integer("duration_days").default(30),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const stageProgress = pgTable("stage_progress", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").notNull().references(() => users.id),
+  stage: integer("stage").notNull(),
+  name: text("name").notNull(),
+  status: text("status").default('pending'),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+export const documents = pgTable("documents", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").notNull().references(() => users.id),
+  stage: integer("stage"),
+  label: text("label"),
+  uploadedByRole: text("uploaded_by_role"),
+  url: text("url").notNull(),
+  mimeType: text("mime_type"),
+  meta: jsonb("meta"),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const dietPlans = pgTable("diet_plans", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").notNull().references(() => users.id),
+  macros: jsonb("macros"),
+  weeklyPlan: jsonb("weekly_plan"),
+  pdfUrl: text("pdf_url"),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const addresses = pgTable("addresses", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").notNull().references(() => users.id),
+  label: text("label"),
+  line1: text("line1"),
+  line2: text("line2"),
+  city: text("city"),
+  state: text("state"),
+  pincode: text("pincode"),
+  isDefault: boolean("is_default").default(false),
+  breakfast: boolean("breakfast").default(false),
+  lunch: boolean("lunch").default(false),
+  dinner: boolean("dinner").default(false),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const deliverySync = pgTable("delivery_sync", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").notNull().references(() => users.id),
+  planId: varchar("plan_id").references(() => plans.id),
+  payload: jsonb("payload"),
+  status: text("status").default('queued'),
   createdAt: timestamp("created_at").defaultNow(),
 });
 
@@ -227,6 +297,36 @@ export const insertNotificationSchema = createInsertSchema(notifications).omit({
   createdAt: true,
 });
 
+export const insertPlanSchema = createInsertSchema(plans).omit({
+  id: true,
+  createdAt: true,
+});
+
+export const insertStageProgressSchema = createInsertSchema(stageProgress).omit({
+  id: true,
+  updatedAt: true,
+});
+
+export const insertDocumentSchema = createInsertSchema(documents).omit({
+  id: true,
+  createdAt: true,
+});
+
+export const insertDietPlanSchema = createInsertSchema(dietPlans).omit({
+  id: true,
+  createdAt: true,
+});
+
+export const insertAddressSchema = createInsertSchema(addresses).omit({
+  id: true,
+  createdAt: true,
+});
+
+export const insertDeliverySyncSchema = createInsertSchema(deliverySync).omit({
+  id: true,
+  createdAt: true,
+});
+
 export type UpsertUser = z.infer<typeof upsertUserSchema>;
 export type InsertUser = z.infer<typeof insertUserSchema>;
 export type User = typeof users.$inferSelect;
@@ -260,3 +360,21 @@ export type PaymentSession = typeof paymentSessions.$inferSelect;
 
 export type InsertNotification = z.infer<typeof insertNotificationSchema>;
 export type Notification = typeof notifications.$inferSelect;
+
+export type InsertPlan = z.infer<typeof insertPlanSchema>;
+export type Plan = typeof plans.$inferSelect;
+
+export type InsertStageProgress = z.infer<typeof insertStageProgressSchema>;
+export type StageProgress = typeof stageProgress.$inferSelect;
+
+export type InsertDocument = z.infer<typeof insertDocumentSchema>;
+export type Document = typeof documents.$inferSelect;
+
+export type InsertDietPlan = z.infer<typeof insertDietPlanSchema>;
+export type DietPlan = typeof dietPlans.$inferSelect;
+
+export type InsertAddress = z.infer<typeof insertAddressSchema>;
+export type Address = typeof addresses.$inferSelect;
+
+export type InsertDeliverySync = z.infer<typeof insertDeliverySyncSchema>;
+export type DeliverySync = typeof deliverySync.$inferSelect;

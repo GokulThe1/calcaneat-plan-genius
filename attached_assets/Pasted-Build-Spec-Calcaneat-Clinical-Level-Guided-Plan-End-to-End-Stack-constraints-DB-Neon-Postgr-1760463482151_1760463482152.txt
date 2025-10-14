@@ -1,0 +1,401 @@
+Build Spec: Calcaneat — Clinical-Level Guided Plan (End-to-End)
+
+Stack constraints
+
+DB: Neon (PostgreSQL) via Drizzle ORM (already connected)
+
+Server: Node/Express (or Next.js API routes) — all DB writes must be server-side
+
+Auth: Session/JWT (auto-login immediately after signup)
+
+File storage: S3-compatible bucket (Cloudflare R2 / AWS S3). Store file URLs + metadata in DB.
+
+Payments: Provider interface with DummyPayment (now) and easy swap for Razorpay later.
+
+Frontend: React (or Next.js) + Tailwind. react-router-dom (if SPA) with distinct routes.
+
+PDF: Server-side PDF generation (pdf-lib or jsPDF) to build Consolidated Final Report.
+
+0) Routing (pages)
+
+/plans – plan cards (AI vs Clinical)
+
+/book-consultation – doctor/date/time + Booking Summary → Continue
+
+/signup – account form → on success auto-login → continue
+
+/character – avatar upload/preset → save to user
+
+/payment – show Plan Price, Consultation Fee already paid, Final Payable = PlanPrice – ConsultationFee → pay (dummy)
+
+/dashboard – 6-stage tracker + widgets
+
+/profile – tabs: My Reports, My Plan, Account Details (delivery addresses)
+
+/admin – role-gated: upload/verify reports, mark stages, upload diet chart
+
+Critical: The “Sign in to View Profile” (post-payment) must route to /dashboard (no 404).
+
+1) Domain model & Drizzle schema (TypeScript)
+
+Create/update @shared/schema (Drizzle):
+
+import { pgTable, text, uuid, timestamp, integer, boolean, jsonb, numeric } from "drizzle-orm/pg-core";
+import { sql } from "drizzle-orm";
+
+// Users & Auth
+export const users = pgTable("users", {
+  id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
+  name: text("name"),
+  email: text("email").notNull().unique(),
+  phone: text("phone"),
+  passwordHash: text("password_hash"), // or external auth provider
+  role: text("role").default("user"), // user | consultant | nutritionist | admin
+  avatarUrl: text("avatar_url"),
+  planType: text("plan_type").default("Clinical"),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+// Booking & payment
+export const bookings = pgTable("bookings", {
+  id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: uuid("user_id").references(() => users.id),
+  doctorName: text("doctor_name"),
+  date: text("date"), // ISO date string
+  timeSlot: text("time_slot"),
+  consultationFeePaid: numeric("consultation_fee_paid"), // e.g., 2000
+  paymentStatus: text("payment_status").default("unpaid"), // unpaid | paid
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const plans = pgTable("plans", {
+  id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: uuid("user_id").references(() => users.id),
+  type: text("type").default("Clinical"),
+  listPrice: numeric("list_price"), // e.g., 25000
+  discountAmount: numeric("discount_amount").default("0"),
+  consultationFeeCredited: numeric("consultation_fee_credited").default("0"),
+  finalPayable: numeric("final_payable"), // computed at checkout
+  isActive: boolean("is_active").default(false),
+  startDate: text("start_date"),
+  durationDays: integer("duration_days").default(30),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+// Stages & progress
+// 1 Basic Consultation Report, 2 Test Report, 3 Approval Report,
+// 4 Diet Chart, 5 Plan Activation (payment), 6 Delivery Setup
+export const stageProgress = pgTable("stage_progress", {
+  id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: uuid("user_id").references(() => users.id),
+  stage: integer("stage"), // 1..6
+  name: text("name"),
+  status: text("status").default("pending"), // pending | completed
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+// File uploads (reports & diet chart)
+export const documents = pgTable("documents", {
+  id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: uuid("user_id").references(() => users.id),
+  stage: integer("stage"), // 1,2,3,4
+  label: text("label"), // "Basic Consultation Report" | "Test Report" | ...
+  uploadedByRole: text("uploaded_by_role"), // consultant | user | nutritionist | admin
+  url: text("url").notNull(),
+  mimeType: text("mime_type"),
+  meta: jsonb("meta"),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+// Diet plan content
+export const dietPlans = pgTable("diet_plans", {
+  id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: uuid("user_id").references(() => users.id),
+  macros: jsonb("macros"), // { calories, protein, carbs, fats }
+  weeklyPlan: jsonb("weekly_plan"), // day-wise meals
+  pdfUrl: text("pdf_url"),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+// Delivery addresses
+export const addresses = pgTable("addresses", {
+  id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: uuid("user_id").references(() => users.id),
+  label: text("label"), // "Home" | "Office"
+  line1: text("line1"),
+  line2: text("line2"),
+  city: text("city"),
+  state: text("state"),
+  pincode: text("pincode"),
+  isDefault: boolean("is_default").default(false),
+  breakfast: boolean("breakfast").default(false),
+  lunch: boolean("lunch").default(false),
+  dinner: boolean("dinner").default(false),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+// Delivery sync log (optional)
+export const deliverySync = pgTable("delivery_sync", {
+  id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: uuid("user_id").references(() => users.id),
+  planId: uuid("plan_id").references(() => plans.id),
+  payload: jsonb("payload"),
+  status: text("status").default("queued"), // queued | sent | error
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+
+Seed stageProgress for a new clinical user with 6 rows (stage 1..6, status pending).
+
+2) Roles & permissions
+
+User: can upload Test Report (stage 2), set addresses, pay, view all reports & plan.
+
+Consultant: upload Basic Consultation Report (stage 1), verify stage 2, upload Approval Report (stage 3).
+
+Nutritionist: upload Diet Chart (stage 4).
+
+Admin: can perform all actions and override stage status.
+
+3) API endpoints (server-side)
+
+Auth
+
+POST /api/auth/signup → create user, hash password, auto-login, return userId
+
+POST /api/auth/login → login, set session/JWT
+
+GET /api/auth/me → current user
+
+Booking & Payments
+
+POST /api/booking → save doctor/date/time + consultationFeePaid=2000, set stage 1 to completed only after Basic Report upload
+
+POST /api/payment/checkout
+Inputs: { planListPrice, consultationFeePaid }
+Compute: finalPayable = planListPrice - consultationFeePaid
+Create plans row with computed fields. If DummyPayment, mark success immediately.
+
+POST /api/payment/confirm → on success: set Stage 5 to completed, mark plan isActive=true
+
+Documents (S3 uploads)
+
+POST /api/upload/signed-url → return signed PUT URL + public URL
+
+POST /api/documents → save document record {userId, stage, label, uploadedByRole, url, mimeType, meta}
+
+Stage 1 upload by consultant → mark Stage 1 completed
+
+Stage 2 upload by user/consultant → mark Stage 2 completed
+
+Stage 3 upload by consultant → mark Stage 3 completed
+
+Stage 4 upload by nutritionist (diet chart) → mark Stage 4 completed
+
+Diet plan
+
+POST /api/diet → save macros, weeklyPlan; generate diet PDF → save pdfUrl; ties to stage 4.
+
+GET /api/diet → fetch current user’s diet
+
+Progress
+
+GET /api/progress → return six stages with status
+
+POST /api/progress/override (admin) → set any stage status
+
+Addresses
+
+GET /api/addresses
+
+POST /api/addresses → create/edit (with meal assignments; enforce max 2 addresses)
+
+POST /api/addresses/default/:id → set default
+
+Delivery sync
+
+POST /api/delivery/sync → package active plan + address assignments; enqueue payload in deliverySync
+
+Trigger after Stage 6 completion & plan activation.
+
+Final Consolidated PDF
+
+POST /api/final-report → compile: Stage 1/2/3 documents + Diet plan summary (stage 4) + activation details and delivery setup → merge into single PDF → store documents row with label "Consolidated Final Report" and make downloadable from dashboard.
+
+4) Frontend requirements
+
+Plan Selection (/plans)
+
+Two cards. Clinical → flow below.
+
+Booking (/book-consultation)
+
+3 doctors, calendar, slots, live Booking Summary
+
+Continue → /signup
+
+Signup (/signup)
+
+On success: auto-login (session/JWT), redirect /character
+
+Character (/character)
+
+Upload or pick preset. Save avatarUrl → continue /payment
+
+Payment (/payment)
+
+Show: Plan Price, Consultation Fee (already paid), Final Payable
+
+“Pay Now” → DummyPayment success screen:
+
+“Payment Successful — Your consultation has been booked successfully.”
+
+Buttons: View Dashboard (→ /dashboard) | Back to Home
+
+Dashboard (/dashboard)
+
+Horizontal 6-stage tracker with ✅ when completed:
+
+Basic Consultation Report (Consultant uploads → My Reports)
+
+Test Report (User/Consultant uploads → My Reports)
+
+Nutrition Approval Report (Consultant → My Reports)
+
+Personalized Diet Chart (Nutritionist → My Plan, preview + PDF)
+
+Plan Activation (User payment → My Plan: Active)
+
+Delivery Setup (User → Account Details)
+
+Widgets:
+
+Active Plan Details (price, duration, start date)
+
+Meal Schedule & Delivery Status
+
+Download Consolidated Final Report (when all relevant docs exist)
+
+Profile (/profile)
+
+My Reports: list Stage 1/2/3 docs (+ Consolidated Report when ready)
+
+My Plan: Diet plan viewer (day-wise meals + macros) + download PDF
+
+Account Details: Two addresses max; assign meals (breakfast/lunch/dinner); set default
+
+Admin (/admin)
+
+Upload forms with role guard:
+
+Stage 1: Basic Consultation Report (consultant/admin)
+
+Stage 2: Test Report (verify) (consultant/admin)
+
+Stage 3: Approval Report (consultant/admin)
+
+Stage 4: Diet Chart (nutritionist/admin)
+
+Toggle stage statuses for QA
+
+Button: “Generate Final Consolidated PDF”
+
+5) Payment logic (consultation credit)
+
+Example: Plan ₹25,000; Consultation Fee (paid earlier) ₹2,000 → Final Payable ₹23,000
+
+Store:
+
+plans.listPrice = 25000
+
+bookings.consultationFeePaid = 2000
+
+plans.consultationFeeCredited = 2000
+
+plans.finalPayable = listPrice - consultationFeeCredited
+
+On payment success:
+
+Mark Stage 5 completed
+
+Set plans.isActive = true
+
+Require Stage 6 (delivery setup) before delivery sync
+
+6) Delivery setup & sync
+
+In /profile > Account Details:
+
+Add/edit Home and Office addresses (max 2)
+
+Assign meals (breakfast/lunch/dinner) per address
+
+Choose default address
+
+After Stage 6 complete and plan active:
+
+Call POST /api/delivery/sync to push payload (user, plan, address, meal map) to deliverySync (status queued).
+
+Show Delivery Status Tracker on dashboard (queued → sent → error)
+
+7) Notifications (optional but recommended)
+
+On each stage completion, show in-app toast + optional email:
+
+Stage 1 completed — Basic Consultation Report uploaded
+
+Stage 2 completed — Test Report verified
+
+Stage 3 completed — Nutrition Approval Report uploaded
+
+Stage 4 completed — Diet Chart available (view/download)
+
+Stage 5 completed — Plan Activated
+
+Stage 6 completed — Delivery Setup Done (sync initiated)
+
+8) UI: Stage table (for display)
+Stage	Name	Uploaded By	Visibility	Trigger
+1	Basic Consultation Report	Consultant	My Reports	After First Consultation
+2	Test Report	User / Consultant	My Reports	After Diagnostic Upload
+3	Nutrition Approval Report	Consultant	My Reports	After Second Consultation
+4	Personalized Diet Chart	Nutritionist	My Plan	After Approval
+5	Plan Activation (Payment)	User	My Plan	After Payment
+6	Delivery Setup	User	Account Details	Before Plan Start
+9) Environment variables (Replit Secrets)
+DATABASE_URL=postgres://<user>:<pass>@<neon-host>/<db>
+S3_ENDPOINT=https://<r2-or-s3-endpoint>
+S3_BUCKET=calcaneat-files
+S3_REGION=ap-south-1
+S3_ACCESS_KEY_ID=xxxx
+S3_SECRET_ACCESS_KEY=xxxx
+JWT_SECRET=supersecret
+PAYMENT_PROVIDER=dummy   # later: razorpay
+RAZORPAY_KEY_ID=...      # when provider=razorpay
+RAZORPAY_KEY_SECRET=...
+
+10) Acceptance tests (must pass)
+
+Signup → Auto-login → /character
+
+Character save → URL stored in users.avatarUrl
+
+Booking saved → row in bookings
+
+Stage 1 doc upload (admin/consultant) → documents row + Stage 1 completed
+
+User uploads Test Report → Stage 2 completed
+
+Consultant uploads Approval Report → Stage 3 completed
+
+Nutritionist uploads Diet Chart → dietPlans + doc + Stage 4 completed
+
+Payment (dummy) → plans row with finalPayable, plan isActive=true, Stage 5 completed
+
+Addresses set (2 max + meal assignment) → Stage 6 completed
+
+Delivery sync queued → deliverySync row
+
+Final Consolidated PDF available in My Reports
+
+Dashboard shows all stages with ✅ and Active Plan details (duration, start date, schedule)
