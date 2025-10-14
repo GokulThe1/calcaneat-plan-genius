@@ -6,6 +6,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { ThemeProvider } from "@/components/ThemeProvider";
 import { useAuth } from "@/hooks/useAuth";
 import Home from "@/pages/Home";
+import Plans from "@/pages/Plans";
 import AIPlan from "@/pages/AIPlan";
 import ClinicalPlan from "@/pages/ClinicalPlan";
 import ConsultationBooking from "@/pages/ConsultationBooking";
@@ -27,6 +28,7 @@ function Router() {
       {isLoading || !isAuthenticated ? (
         <>
           <Route path="/" component={Home} />
+          <Route path="/plans" component={Plans} />
           <Route path="/ai-plan" component={AIPlan} />
           <Route path="/clinical-plan" component={ClinicalPlan} />
           <Route path="/book-consultation" component={ConsultationBooking} />
@@ -38,6 +40,7 @@ function Router() {
       ) : (
         <>
           <Route path="/" component={Profile} />
+          <Route path="/plans" component={Plans} />
           <Route path="/ai-plan" component={AIPlan} />
           <Route path="/clinical-plan" component={ClinicalPlan} />
           <Route path="/book-consultation" component={ConsultationBooking} />
