@@ -1,3 +1,6 @@
+import { useQuery } from '@tanstack/react-query';
+import { useAuth } from '@/hooks/useAuth';
+import type { Consultation, Milestone } from '@shared/schema';
 import { Header } from '@/components/Header';
 import { Footer } from '@/components/Footer';
 import { MealCard } from '@/components/MealCard';
@@ -40,15 +43,36 @@ const weeklyMeals = [
   },
 ];
 
-const milestones = [
-  { id: 1, name: 'Physician Consultation', status: 'completed', icon: CheckCircle2, color: 'text-primary' },
-  { id: 2, name: 'Test Collection', status: 'completed', icon: CheckCircle2, color: 'text-primary' },
-  { id: 3, name: 'Discussion', status: 'in-progress', icon: Clock, color: 'text-chart-2' },
-  { id: 4, name: 'Diet Chart', status: 'locked', icon: Lock, color: 'text-muted-foreground' },
-  { id: 5, name: 'Meal Delivery', status: 'locked', icon: Lock, color: 'text-muted-foreground' },
-];
-
 export default function Dashboard() {
+  const { user } = useAuth();
+  
+  const { data: consultations = [] } = useQuery<Consultation[]>({
+    queryKey: ['/api/user/consultations'],
+    enabled: !!user,
+  });
+
+  const { data: milestones = [] } = useQuery<Milestone[]>({
+    queryKey: ['/api/user/milestones'],
+    enabled: !!user,
+  });
+
+  const getStatusIcon = (status: string) => {
+    if (status === 'completed') return CheckCircle2;
+    if (status === 'in_progress') return Clock;
+    return Lock;
+  };
+
+  const getStatusColor = (status: string) => {
+    if (status === 'completed') return 'text-primary';
+    if (status === 'in_progress') return 'text-chart-2';
+    return 'text-muted-foreground';
+  };
+
+  const completedCount = milestones.filter(m => m.status === 'completed').length;
+  const totalMilestones = milestones.length || 5;
+  const progressPercentage = (completedCount / totalMilestones) * 100;
+
+  const latestConsultation = consultations[0];
   const stats = [
     { label: 'Daily Calories', value: '1,230', target: '1,800', icon: Flame, color: 'text-chart-2' },
     { label: 'Protein', value: '88g', target: '120g', icon: TrendingDown, color: 'text-chart-1' },
@@ -85,33 +109,48 @@ export default function Dashboard() {
                   </CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
-                    {milestones.map((milestone) => (
-                      <div
-                        key={milestone.id}
-                        className="flex flex-col items-center gap-2 p-4 rounded-md bg-background"
-                        data-testid={`milestone-${milestone.id}`}
-                      >
-                        <div className={`flex h-12 w-12 items-center justify-center rounded-full ${
-                          milestone.status === 'completed' ? 'bg-primary/10' :
-                          milestone.status === 'in-progress' ? 'bg-chart-2/10' :
-                          'bg-muted'
-                        }`}>
-                          <milestone.icon className={`h-6 w-6 ${milestone.color}`} />
-                        </div>
-                        <p className="text-xs text-center font-medium" data-testid={`text-milestone-${milestone.id}`}>
-                          {milestone.name}
-                        </p>
-                        {milestone.status === 'in-progress' && (
-                          <Badge variant="outline" className="text-xs">In Progress</Badge>
-                        )}
+                  {milestones.length > 0 ? (
+                    <>
+                      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
+                        {milestones.map((milestone) => {
+                          const StatusIcon = getStatusIcon(milestone.status);
+                          const statusColor = getStatusColor(milestone.status);
+                          
+                          return (
+                            <div
+                              key={milestone.id}
+                              className="flex flex-col items-center gap-2 p-4 rounded-md bg-background"
+                              data-testid={`milestone-${milestone.id}`}
+                            >
+                              <div className={`flex h-12 w-12 items-center justify-center rounded-full ${
+                                milestone.status === 'completed' ? 'bg-primary/10' :
+                                milestone.status === 'in_progress' ? 'bg-chart-2/10' :
+                                'bg-muted'
+                              }`}>
+                                <StatusIcon className={`h-6 w-6 ${statusColor}`} />
+                              </div>
+                              <p className="text-xs text-center font-medium" data-testid={`text-milestone-${milestone.id}`}>
+                                {milestone.name}
+                              </p>
+                              {milestone.status === 'in_progress' && (
+                                <Badge variant="outline" className="text-xs">In Progress</Badge>
+                              )}
+                            </div>
+                          );
+                        })}
                       </div>
-                    ))}
-                  </div>
-                  <div className="mt-6">
-                    <Progress value={40} data-testid="progress-milestones" />
-                    <p className="text-sm text-muted-foreground mt-2">2 of 5 milestones completed</p>
-                  </div>
+                      <div className="mt-6">
+                        <Progress value={progressPercentage} data-testid="progress-milestones" />
+                        <p className="text-sm text-muted-foreground mt-2">
+                          {completedCount} of {totalMilestones} milestones completed
+                        </p>
+                      </div>
+                    </>
+                  ) : (
+                    <p className="text-center py-8 text-muted-foreground">
+                      No milestones available yet. Complete your consultation to begin your journey.
+                    </p>
+                  )}
                 </CardContent>
               </Card>
 
@@ -229,38 +268,46 @@ export default function Dashboard() {
                       <CardTitle data-testid="text-profile">Consultation Details</CardTitle>
                     </CardHeader>
                     <CardContent className="space-y-4">
-                      <div className="grid md:grid-cols-2 gap-4">
-                        <div className="space-y-2">
-                          <p className="text-sm text-muted-foreground">Age</p>
-                          <p className="font-medium" data-testid="text-age">32 years</p>
+                      {latestConsultation ? (
+                        <div className="grid md:grid-cols-2 gap-4">
+                          <div className="space-y-2">
+                            <p className="text-sm text-muted-foreground">Doctor</p>
+                            <p className="font-medium" data-testid="text-doctor">
+                              {latestConsultation.doctorName || 'Not assigned'}
+                            </p>
+                          </div>
+                          <div className="space-y-2">
+                            <p className="text-sm text-muted-foreground">Date</p>
+                            <p className="font-medium" data-testid="text-date">
+                              {latestConsultation.scheduledDate}
+                            </p>
+                          </div>
+                          <div className="space-y-2">
+                            <p className="text-sm text-muted-foreground">Time</p>
+                            <p className="font-medium" data-testid="text-time">
+                              {latestConsultation.scheduledTime}
+                            </p>
+                          </div>
+                          <div className="space-y-2">
+                            <p className="text-sm text-muted-foreground">Status</p>
+                            <p className="font-medium" data-testid="text-status">
+                              <Badge variant={latestConsultation.status === 'scheduled' ? 'default' : 'secondary'}>
+                                {latestConsultation.status}
+                              </Badge>
+                            </p>
+                          </div>
+                          <div className="space-y-2">
+                            <p className="text-sm text-muted-foreground">Meeting Type</p>
+                            <p className="font-medium capitalize" data-testid="text-meeting-type">
+                              {latestConsultation.meetingType}
+                            </p>
+                          </div>
                         </div>
-                        <div className="space-y-2">
-                          <p className="text-sm text-muted-foreground">Gender</p>
-                          <p className="font-medium" data-testid="text-gender">Female</p>
-                        </div>
-                        <div className="space-y-2">
-                          <p className="text-sm text-muted-foreground">Weight</p>
-                          <p className="font-medium" data-testid="text-weight">68 kg</p>
-                        </div>
-                        <div className="space-y-2">
-                          <p className="text-sm text-muted-foreground">Height</p>
-                          <p className="font-medium" data-testid="text-height">165 cm</p>
-                        </div>
-                        <div className="space-y-2">
-                          <p className="text-sm text-muted-foreground">Goal</p>
-                          <p className="font-medium" data-testid="text-goal">Weight Loss</p>
-                        </div>
-                        <div className="space-y-2">
-                          <p className="text-sm text-muted-foreground">Activity Level</p>
-                          <p className="font-medium" data-testid="text-activity">Moderate</p>
-                        </div>
-                      </div>
-                      <div className="pt-4">
-                        <p className="text-sm text-muted-foreground mb-2">Health Concerns</p>
-                        <div className="flex flex-wrap gap-2">
-                          <Badge variant="outline">None reported</Badge>
-                        </div>
-                      </div>
+                      ) : (
+                        <p className="text-center py-8 text-muted-foreground">
+                          No consultation booked yet.
+                        </p>
+                      )}
                     </CardContent>
                   </Card>
                 </TabsContent>

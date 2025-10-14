@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { useAuth } from '@/hooks/useAuth';
+import type { Report } from '@shared/schema';
 import { Header } from '@/components/Header';
 import { Footer } from '@/components/Footer';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -15,8 +16,8 @@ export default function Profile() {
   const { user } = useAuth();
   const [activeTab, setActiveTab] = useState('reports');
 
-  const { data: reports } = useQuery({
-    queryKey: ['/api/reports'],
+  const { data: reports = [] } = useQuery<Report[]>({
+    queryKey: ['/api/user/reports'],
     enabled: !!user,
   });
 
@@ -109,35 +110,37 @@ export default function Profile() {
                     <CardTitle>Lab Reports & Medical Notes</CardTitle>
                   </CardHeader>
                   <CardContent className="space-y-4">
-                    {mockReports.map((report) => (
-                      <div
-                        key={report.id}
-                        className="flex items-center justify-between p-4 border rounded-lg hover-elevate"
-                        data-testid={`report-${report.id}`}
-                      >
-                        <div className="flex items-center gap-4">
-                          <div className="h-12 w-12 rounded-lg bg-primary/10 flex items-center justify-center">
-                            <FileText className="h-6 w-6 text-primary" />
-                          </div>
-                          <div>
-                            <h3 className="font-semibold">{report.title}</h3>
-                            <div className="flex items-center gap-4 text-sm text-muted-foreground">
-                              <span className="flex items-center gap-1">
-                                <Calendar className="h-3 w-3" />
-                                {report.date}
-                              </span>
-                              <span>{report.status}</span>
+                    {reports && reports.length > 0 ? (
+                      reports.map((report) => (
+                        <div
+                          key={report.id}
+                          className="flex items-center justify-between p-4 border rounded-lg hover-elevate"
+                          data-testid={`report-${report.id}`}
+                        >
+                          <div className="flex items-center gap-4">
+                            <div className="h-12 w-12 rounded-lg bg-primary/10 flex items-center justify-center">
+                              <FileText className="h-6 w-6 text-primary" />
+                            </div>
+                            <div>
+                              <h3 className="font-semibold">{report.title}</h3>
+                              <div className="flex items-center gap-4 text-sm text-muted-foreground">
+                                <span className="flex items-center gap-1">
+                                  <Calendar className="h-3 w-3" />
+                                  {report.createdAt ? new Date(report.createdAt).toLocaleDateString() : 'N/A'}
+                                </span>
+                                <span>{report.reportType}</span>
+                              </div>
                             </div>
                           </div>
+                          {report.fileUrl && (
+                            <Button variant="outline" size="sm" data-testid={`button-download-${report.id}`}>
+                              <Download className="h-4 w-4 mr-2" />
+                              Download
+                            </Button>
+                          )}
                         </div>
-                        <Button variant="outline" size="sm" data-testid={`button-download-${report.id}`}>
-                          <Download className="h-4 w-4 mr-2" />
-                          Download
-                        </Button>
-                      </div>
-                    ))}
-
-                    {mockReports.length === 0 && (
+                      ))
+                    ) : (
                       <div className="text-center py-12 text-muted-foreground">
                         <FileText className="h-12 w-12 mx-auto mb-3 opacity-50" />
                         <p>No reports available yet</p>

@@ -279,6 +279,7 @@ export class MemStorage implements IStorage {
       amount: insertSession.amount,
       status: insertSession.status || 'pending',
       paymentMethod: insertSession.paymentMethod || null,
+      razorpayOrderId: null,
       completedAt: null,
       createdAt: new Date(),
     };

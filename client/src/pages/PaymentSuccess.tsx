@@ -13,10 +13,18 @@ export default function PaymentSuccess() {
   const signupData = JSON.parse(localStorage.getItem('signupData') || '{}');
 
   useEffect(() => {
-    // Clear the stored data after showing success
+    // Auto-redirect to login after 3 seconds
+    const timer = setTimeout(() => {
+      window.location.href = '/api/login';
+    }, 3000);
+
     return () => {
+      clearTimeout(timer);
       localStorage.removeItem('consultationData');
       localStorage.removeItem('signupData');
+      localStorage.removeItem('pendingUserId');
+      localStorage.removeItem('pendingPaymentSessionId');
+      localStorage.removeItem('userEmail');
     };
   }, []);
 
@@ -81,28 +89,13 @@ export default function PaymentSuccess() {
               <div className="space-y-3 pt-4">
                 <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 text-sm text-blue-900">
                   <p className="font-semibold mb-1">What's Next?</p>
-                  <p>You'll receive a confirmation email shortly with all the details. Please sign in to access your dashboard and track your progress through our 5-stage wellness journey.</p>
+                  <p>Redirecting you to sign in... You'll be able to access your dashboard and track your progress through our 5-stage wellness journey.</p>
                 </div>
 
-                <Button
-                  size="lg"
-                  className="w-full"
-                  onClick={() => window.location.href = '/auth/replit'}
-                  data-testid="button-go-to-profile"
-                >
-                  Sign In to View Profile
-                  <ArrowRight className="ml-2 h-4 w-4" />
-                </Button>
-
-                <Button
-                  size="lg"
-                  variant="outline"
-                  className="w-full"
-                  onClick={() => navigate('/')}
-                  data-testid="button-back-home"
-                >
-                  Back to Home
-                </Button>
+                <div className="flex items-center justify-center gap-2 text-sm text-muted-foreground">
+                  <div className="animate-spin h-4 w-4 border-2 border-primary border-t-transparent rounded-full" />
+                  <span>Preparing your dashboard...</span>
+                </div>
               </div>
             </CardContent>
           </Card>

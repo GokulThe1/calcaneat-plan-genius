@@ -1,0 +1,134 @@
+Book Consultation → Sign-Up → Auto-Login → Character Creation → Payment → Dashboard/Profile
+
+and it’s all connected to your Neon + Drizzle database.
+
+
+
+✅ The user is automatically logged in after sign-up (no manual login step).
+
+✅ The character creation and payment success data are saved to the database.
+
+✅ The redirect after payment (View Profile / Dashboard) actually loads the user’s stored data.
+
+Here’s a ready-to-paste prompt for Replit that clearly explains all that — so it knows you’ve already built the flow and just need it to finish connecting all the moving parts properly 👇
+
+⚙️ Prompt for Replit — Final Flow Integration with Neon + Drizzle
+
+I’ve already implemented the complete Clinical-Level Guided Plan flow in my Calcaneat app as discussed:
+
+Book Consultation → Select doctor, date, and time.
+
+Sign-Up → User enters name, email, password, and phone.
+
+After successful sign-up, the user should be automatically logged in (no need for a separate login page).
+
+Character Creation → User uploads or selects an avatar.
+
+Dummy Payment → Shows “Payment Successful” message.
+
+Redirect to Dashboard/Profile → User should see the saved data (doctor, date, avatar, payment status).
+
+🧩 What’s Already Done
+
+I’m using Neon Database (PostgreSQL) connected through Drizzle ORM.
+
+Connection file:
+
+import { Pool, neonConfig } from '@neondatabase/serverless';
+import { drizzle } from 'drizzle-orm/neon-serverless';
+import ws from "ws";
+import * as schema from "@shared/schema";
+
+neonConfig.webSocketConstructor = ws;
+
+if (!process.env.DATABASE_URL) {
+  throw new Error("DATABASE_URL must be set.");
+}
+
+export const pool = new Pool({ connectionString: process.env.DATABASE_URL });
+export const db = drizzle({ client: pool, schema });
+
+
+The app connects successfully (no errors).
+
+Pages and flow are working correctly, but data is not persisting (no inserts visible in Neon dashboard).
+
+⚠️ What Needs to Be Fixed
+
+Auto-Login After Sign-Up
+
+Once a new user signs up, automatically log them in and store their user_id in session or JWT.
+
+The session should persist so they can directly continue to Character Creation.
+
+Ensure Each Step Saves Data
+
+On sign-up → insert user record into users table.
+
+On character creation → update users table with avatar_url.
+
+On payment → create a record in bookings table with doctor, date, time, and payment status “paid”.
+
+Connect All Inserts/Updates to Neon via Drizzle
+
+Example for sign-up:
+
+const { data, error } = await db.insert(schema.users).values({
+  name,
+  email,
+  phone,
+  plan_type: 'Clinical',
+});
+
+
+Example for avatar update:
+
+await db.update(schema.users)
+  .set({ avatar_url })
+  .where(eq(schema.users.id, userId));
+
+
+Example for booking:
+
+await db.insert(schema.bookings).values({
+  user_id: userId,
+  doctor_name,
+  date,
+  time_slot,
+  payment_status: 'paid',
+});
+
+
+Fix Redirect After Payment
+
+When “Payment Successful” message appears, the “Sign in to View Profile” button should redirect to /dashboard.
+
+The dashboard should load real data from Neon using Drizzle:
+
+const bookings = await db.select().from(schema.bookings)
+  .where(eq(schema.bookings.user_id, userId));
+
+
+Ensure no more 404 error for this route.
+
+Test End-to-End Flow
+
+New user signs up → record created in users table.
+
+Character created → avatar updated in DB.
+
+Payment completed → booking created in DB.
+
+Dashboard displays stored details correctly.
+
+✅ Expected Outcome
+
+User automatically logs in after sign-up.
+
+Each step (sign-up, character, payment) saves data correctly in Neon via Drizzle ORM.
+
+Dashboard/Profile loads stored data with no missing or blank fields.
+
+The entire flow runs smoothly without 404 errors or broken redirects.
+
+Please verify that the Neon connection is active and that all database insert/update calls are properly executed at each stage of the flow.
