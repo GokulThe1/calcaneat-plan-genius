@@ -1,4 +1,4 @@
-import { type User, type UpsertUser, type InsertUser, type CustomerProfile, type InsertCustomerProfile, type Subscription, type InsertSubscription, type Milestone, type InsertMilestone, type Report, type InsertReport, type Consultation, type InsertConsultation, type Order, type InsertOrder, type PaymentSession, type InsertPaymentSession, users, customerProfiles, milestones, reports, consultations, orders, paymentSessions } from "@shared/schema";
+import { type User, type UpsertUser, type InsertUser, type CustomerProfile, type InsertCustomerProfile, type Subscription, type InsertSubscription, type Milestone, type InsertMilestone, type Report, type InsertReport, type Consultation, type InsertConsultation, type Order, type InsertOrder, type PaymentSession, type InsertPaymentSession, users, customerProfiles, milestones, reports, consultations, orders, paymentSessions, subscriptions, mealPlans, notifications } from "@shared/schema";
 import { randomUUID } from "crypto";
 import { db } from "./db";
 import { eq, and } from "drizzle-orm";
@@ -331,6 +331,7 @@ export class DbStorage implements IStorage {
   }
 
   async upsertUser(upsertUser: UpsertUser): Promise<User> {
+    // First check if user exists by ID
     if (upsertUser.id) {
       const existing = await this.getUser(upsertUser.id);
       if (existing) {
@@ -352,7 +353,93 @@ export class DbStorage implements IStorage {
       }
     }
     
+    // Check if user exists by email (important for Replit Auth login after signup)
+    if (upsertUser.email && upsertUser.id) {
+      const existingByEmail = await this.getUserByEmail(upsertUser.email);
+      if (existingByEmail && existingByEmail.id !== upsertUser.id) {
+        // User signed up with email, now logging in with OIDC
+        // We need to migrate all data to the OIDC ID
+        const oldId = existingByEmail.id;
+        const newId = upsertUser.id;
+        
+        // Use a transaction to ensure atomic migration
+        return await db.transaction(async (tx) => {
+          // 1. Temporarily clear the email from old user to free up the unique constraint
+          await tx.update(users)
+            .set({ email: null })
+            .where(eq(users.id, oldId));
+          
+          // 2. Create the new user with OIDC ID and the email
+          const [newUser] = await tx.insert(users).values({
+            id: newId,
+            email: upsertUser.email,
+            firstName: upsertUser.firstName || existingByEmail.firstName,
+            lastName: upsertUser.lastName || existingByEmail.lastName,
+            phone: existingByEmail.phone,
+            profileImageUrl: upsertUser.profileImageUrl || existingByEmail.profileImageUrl,
+            characterImageUrl: existingByEmail.characterImageUrl,
+            characterType: existingByEmail.characterType,
+            role: existingByEmail.role,
+          }).returning();
+          
+          // 3. Migrate all related records to use the new OIDC ID
+          // Update primary user foreign keys
+          await tx.update(consultations)
+            .set({ userId: newId })
+            .where(eq(consultations.userId, oldId));
+          
+          await tx.update(milestones)
+            .set({ userId: newId })
+            .where(eq(milestones.userId, oldId));
+          
+          await tx.update(paymentSessions)
+            .set({ userId: newId })
+            .where(eq(paymentSessions.userId, oldId));
+          
+          await tx.update(customerProfiles)
+            .set({ userId: newId })
+            .where(eq(customerProfiles.userId, oldId));
+          
+          await tx.update(reports)
+            .set({ userId: newId })
+            .where(eq(reports.userId, oldId));
+          
+          await tx.update(subscriptions)
+            .set({ userId: newId })
+            .where(eq(subscriptions.userId, oldId));
+          
+          await tx.update(orders)
+            .set({ userId: newId })
+            .where(eq(orders.userId, oldId));
+          
+          await tx.update(mealPlans)
+            .set({ userId: newId })
+            .where(eq(mealPlans.userId, oldId));
+          
+          await tx.update(notifications)
+            .set({ userId: newId })
+            .where(eq(notifications.userId, oldId));
+          
+          // Update optional user foreign keys (consultantId, assignedDeliveryPersonId)
+          await tx.update(consultations)
+            .set({ consultantId: newId })
+            .where(eq(consultations.consultantId, oldId));
+          
+          await tx.update(orders)
+            .set({ assignedDeliveryPersonId: newId })
+            .where(eq(orders.assignedDeliveryPersonId, oldId));
+          
+          // 4. Finally, delete the old user record (now with null email)
+          await tx.delete(users).where(eq(users.id, oldId));
+          
+          return newUser;
+        });
+      }
+    }
+    
+    // Create new user if doesn't exist
     const [newUser] = await db.insert(users).values({
+      id: upsertUser.id,
       email: upsertUser.email || null,
       firstName: upsertUser.firstName || null,
       lastName: upsertUser.lastName || null,
