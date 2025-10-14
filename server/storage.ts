@@ -1,4 +1,4 @@
-import { type User, type UpsertUser, type InsertUser, type CustomerProfile, type InsertCustomerProfile, type Subscription, type InsertSubscription, type Milestone, type InsertMilestone, type Report, type InsertReport, type Consultation, type InsertConsultation, type Order, type InsertOrder, type PaymentSession, type InsertPaymentSession, users, customerProfiles, milestones, reports, consultations, orders, paymentSessions, subscriptions, mealPlans, notifications } from "@shared/schema";
+import { type User, type UpsertUser, type InsertUser, type CustomerProfile, type InsertCustomerProfile, type Subscription, type InsertSubscription, type Milestone, type InsertMilestone, type Report, type InsertReport, type Consultation, type InsertConsultation, type Order, type InsertOrder, type PaymentSession, type InsertPaymentSession, type Plan, type InsertPlan, type StageProgress, type InsertStageProgress, type Document, type InsertDocument, type DietPlan, type InsertDietPlan, type Address, type InsertAddress, type DeliverySync, type InsertDeliverySync, users, customerProfiles, milestones, reports, consultations, orders, paymentSessions, subscriptions, mealPlans, notifications, plans, stageProgress, documents, dietPlans, addresses, deliverySync } from "@shared/schema";
 import { randomUUID } from "crypto";
 import { db } from "./db";
 import { eq, and } from "drizzle-orm";
@@ -32,6 +32,31 @@ export interface IStorage {
   getPaymentSession(id: string): Promise<PaymentSession | undefined>;
   updatePaymentSession(id: string, updates: Partial<PaymentSession>): Promise<PaymentSession | undefined>;
   updateUser(id: string, updates: Partial<User>): Promise<User | undefined>;
+  
+  // New Clinical Plan methods
+  createPlan(plan: InsertPlan): Promise<Plan>;
+  getUserPlan(userId: string): Promise<Plan | undefined>;
+  updatePlan(id: string, updates: Partial<Plan>): Promise<Plan | undefined>;
+  
+  getUserStageProgress(userId: string): Promise<StageProgress[]>;
+  createStageProgress(stage: InsertStageProgress): Promise<StageProgress>;
+  updateStageProgress(id: string, updates: Partial<StageProgress>): Promise<StageProgress | undefined>;
+  
+  getUserDocuments(userId: string): Promise<Document[]>;
+  getDocumentsByStage(userId: string, stage: number): Promise<Document[]>;
+  createDocument(document: InsertDocument): Promise<Document>;
+  
+  getUserDietPlan(userId: string): Promise<DietPlan | undefined>;
+  createDietPlan(dietPlan: InsertDietPlan): Promise<DietPlan>;
+  updateDietPlan(id: string, updates: Partial<DietPlan>): Promise<DietPlan | undefined>;
+  
+  getUserAddresses(userId: string): Promise<Address[]>;
+  createAddress(address: InsertAddress): Promise<Address>;
+  updateAddress(id: string, updates: Partial<Address>): Promise<Address | undefined>;
+  deleteAddress(id: string): Promise<boolean>;
+  
+  createDeliverySync(sync: InsertDeliverySync): Promise<DeliverySync>;
+  getUserDeliverySyncs(userId: string): Promise<DeliverySync[]>;
 }
 
 export class MemStorage implements IStorage {
@@ -42,6 +67,12 @@ export class MemStorage implements IStorage {
   private consultations: Map<string, Consultation>;
   private orders: Map<string, Order>;
   private paymentSessions: Map<string, PaymentSession>;
+  private plans: Map<string, Plan>;
+  private stageProgress: Map<string, StageProgress>;
+  private documents: Map<string, Document>;
+  private dietPlans: Map<string, DietPlan>;
+  private addresses: Map<string, Address>;
+  private deliverySyncs: Map<string, DeliverySync>;
 
   constructor() {
     this.users = new Map();
@@ -51,6 +82,12 @@ export class MemStorage implements IStorage {
     this.consultations = new Map();
     this.orders = new Map();
     this.paymentSessions = new Map();
+    this.plans = new Map();
+    this.stageProgress = new Map();
+    this.documents = new Map();
+    this.dietPlans = new Map();
+    this.addresses = new Map();
+    this.deliverySyncs = new Map();
   }
 
   async getUser(id: string): Promise<User | undefined> {
@@ -221,6 +258,7 @@ export class MemStorage implements IStorage {
       doctorName: insertConsultation.doctorName || null,
       consultantId: insertConsultation.consultantId || null,
       notes: insertConsultation.notes || null,
+      consultationFeePaid: insertConsultation.consultationFeePaid || null,
       createdAt: new Date(),
     };
     this.consultations.set(id, consultation);
@@ -315,6 +353,174 @@ export class MemStorage implements IStorage {
     };
     this.users.set(id, updated);
     return updated;
+  }
+
+  // Plan methods
+  async createPlan(insertPlan: InsertPlan): Promise<Plan> {
+    const id = randomUUID();
+    const plan: Plan = {
+      ...insertPlan,
+      id,
+      type: insertPlan.type || 'Clinical',
+      discountAmount: insertPlan.discountAmount || '0',
+      consultationFeeCredited: insertPlan.consultationFeeCredited || '0',
+      isActive: insertPlan.isActive || false,
+      durationDays: insertPlan.durationDays || 30,
+      listPrice: insertPlan.listPrice || null,
+      finalPayable: insertPlan.finalPayable || null,
+      startDate: insertPlan.startDate || null,
+      createdAt: new Date(),
+    };
+    this.plans.set(id, plan);
+    return plan;
+  }
+
+  async getUserPlan(userId: string): Promise<Plan | undefined> {
+    return Array.from(this.plans.values()).find(p => p.userId === userId && p.isActive);
+  }
+
+  async updatePlan(id: string, updates: Partial<Plan>): Promise<Plan | undefined> {
+    const plan = this.plans.get(id);
+    if (!plan) return undefined;
+    const updated: Plan = { ...plan, ...updates };
+    this.plans.set(id, updated);
+    return updated;
+  }
+
+  // Stage Progress methods
+  async getUserStageProgress(userId: string): Promise<StageProgress[]> {
+    return Array.from(this.stageProgress.values()).filter(s => s.userId === userId);
+  }
+
+  async createStageProgress(insertStage: InsertStageProgress): Promise<StageProgress> {
+    const id = randomUUID();
+    const stage: StageProgress = {
+      ...insertStage,
+      id,
+      status: insertStage.status || 'pending',
+      updatedAt: new Date(),
+    };
+    this.stageProgress.set(id, stage);
+    return stage;
+  }
+
+  async updateStageProgress(id: string, updates: Partial<StageProgress>): Promise<StageProgress | undefined> {
+    const stage = this.stageProgress.get(id);
+    if (!stage) return undefined;
+    const updated: StageProgress = { ...stage, ...updates, updatedAt: new Date() };
+    this.stageProgress.set(id, updated);
+    return updated;
+  }
+
+  // Document methods
+  async getUserDocuments(userId: string): Promise<Document[]> {
+    return Array.from(this.documents.values()).filter(d => d.userId === userId);
+  }
+
+  async getDocumentsByStage(userId: string, stage: number): Promise<Document[]> {
+    return Array.from(this.documents.values()).filter(
+      d => d.userId === userId && d.stage === stage
+    );
+  }
+
+  async createDocument(insertDoc: InsertDocument): Promise<Document> {
+    const id = randomUUID();
+    const document: Document = {
+      ...insertDoc,
+      id,
+      stage: insertDoc.stage || null,
+      label: insertDoc.label || null,
+      uploadedByRole: insertDoc.uploadedByRole || null,
+      mimeType: insertDoc.mimeType || null,
+      meta: insertDoc.meta || null,
+      createdAt: new Date(),
+    };
+    this.documents.set(id, document);
+    return document;
+  }
+
+  // Diet Plan methods
+  async getUserDietPlan(userId: string): Promise<DietPlan | undefined> {
+    return Array.from(this.dietPlans.values()).find(d => d.userId === userId);
+  }
+
+  async createDietPlan(insertDietPlan: InsertDietPlan): Promise<DietPlan> {
+    const id = randomUUID();
+    const dietPlan: DietPlan = {
+      ...insertDietPlan,
+      id,
+      macros: insertDietPlan.macros || null,
+      weeklyPlan: insertDietPlan.weeklyPlan || null,
+      pdfUrl: insertDietPlan.pdfUrl || null,
+      createdAt: new Date(),
+    };
+    this.dietPlans.set(id, dietPlan);
+    return dietPlan;
+  }
+
+  async updateDietPlan(id: string, updates: Partial<DietPlan>): Promise<DietPlan | undefined> {
+    const dietPlan = this.dietPlans.get(id);
+    if (!dietPlan) return undefined;
+    const updated: DietPlan = { ...dietPlan, ...updates };
+    this.dietPlans.set(id, updated);
+    return updated;
+  }
+
+  // Address methods
+  async getUserAddresses(userId: string): Promise<Address[]> {
+    return Array.from(this.addresses.values()).filter(a => a.userId === userId);
+  }
+
+  async createAddress(insertAddress: InsertAddress): Promise<Address> {
+    const id = randomUUID();
+    const address: Address = {
+      ...insertAddress,
+      id,
+      label: insertAddress.label || null,
+      line1: insertAddress.line1 || null,
+      line2: insertAddress.line2 || null,
+      city: insertAddress.city || null,
+      state: insertAddress.state || null,
+      pincode: insertAddress.pincode || null,
+      isDefault: insertAddress.isDefault || false,
+      breakfast: insertAddress.breakfast || false,
+      lunch: insertAddress.lunch || false,
+      dinner: insertAddress.dinner || false,
+      createdAt: new Date(),
+    };
+    this.addresses.set(id, address);
+    return address;
+  }
+
+  async updateAddress(id: string, updates: Partial<Address>): Promise<Address | undefined> {
+    const address = this.addresses.get(id);
+    if (!address) return undefined;
+    const updated: Address = { ...address, ...updates };
+    this.addresses.set(id, updated);
+    return updated;
+  }
+
+  async deleteAddress(id: string): Promise<boolean> {
+    return this.addresses.delete(id);
+  }
+
+  // Delivery Sync methods
+  async createDeliverySync(insertSync: InsertDeliverySync): Promise<DeliverySync> {
+    const id = randomUUID();
+    const sync: DeliverySync = {
+      ...insertSync,
+      id,
+      planId: insertSync.planId || null,
+      payload: insertSync.payload || null,
+      status: insertSync.status || 'queued',
+      createdAt: new Date(),
+    };
+    this.deliverySyncs.set(id, sync);
+    return sync;
+  }
+
+  async getUserDeliverySyncs(userId: string): Promise<DeliverySync[]> {
+    return Array.from(this.deliverySyncs.values()).filter(s => s.userId === userId);
   }
 }
 
@@ -428,6 +634,31 @@ export class DbStorage implements IStorage {
           await tx.update(orders)
             .set({ assignedDeliveryPersonId: newId })
             .where(eq(orders.assignedDeliveryPersonId, oldId));
+          
+          // Update new clinical plan tables
+          await tx.update(plans)
+            .set({ userId: newId })
+            .where(eq(plans.userId, oldId));
+          
+          await tx.update(stageProgress)
+            .set({ userId: newId })
+            .where(eq(stageProgress.userId, oldId));
+          
+          await tx.update(documents)
+            .set({ userId: newId })
+            .where(eq(documents.userId, oldId));
+          
+          await tx.update(dietPlans)
+            .set({ userId: newId })
+            .where(eq(dietPlans.userId, oldId));
+          
+          await tx.update(addresses)
+            .set({ userId: newId })
+            .where(eq(addresses.userId, oldId));
+          
+          await tx.update(deliverySync)
+            .set({ userId: newId })
+            .where(eq(deliverySync.userId, oldId));
           
           // 4. Finally, delete the old user record (now with null email)
           await tx.delete(users).where(eq(users.id, oldId));
@@ -561,6 +792,111 @@ export class DbStorage implements IStorage {
       .where(eq(users.id, id))
       .returning();
     return updated;
+  }
+
+  // Plan methods
+  async createPlan(plan: InsertPlan): Promise<Plan> {
+    const [created] = await db.insert(plans).values(plan).returning();
+    return created;
+  }
+
+  async getUserPlan(userId: string): Promise<Plan | undefined> {
+    const result = await db.select().from(plans)
+      .where(and(eq(plans.userId, userId), eq(plans.isActive, true)));
+    return result[0];
+  }
+
+  async updatePlan(id: string, updates: Partial<Plan>): Promise<Plan | undefined> {
+    const [updated] = await db.update(plans)
+      .set(updates)
+      .where(eq(plans.id, id))
+      .returning();
+    return updated;
+  }
+
+  // Stage Progress methods
+  async getUserStageProgress(userId: string): Promise<StageProgress[]> {
+    return await db.select().from(stageProgress).where(eq(stageProgress.userId, userId));
+  }
+
+  async createStageProgress(stage: InsertStageProgress): Promise<StageProgress> {
+    const [created] = await db.insert(stageProgress).values(stage).returning();
+    return created;
+  }
+
+  async updateStageProgress(id: string, updates: Partial<StageProgress>): Promise<StageProgress | undefined> {
+    const [updated] = await db.update(stageProgress)
+      .set({ ...updates, updatedAt: new Date() })
+      .where(eq(stageProgress.id, id))
+      .returning();
+    return updated;
+  }
+
+  // Document methods
+  async getUserDocuments(userId: string): Promise<Document[]> {
+    return await db.select().from(documents).where(eq(documents.userId, userId));
+  }
+
+  async getDocumentsByStage(userId: string, stage: number): Promise<Document[]> {
+    return await db.select().from(documents)
+      .where(and(eq(documents.userId, userId), eq(documents.stage, stage)));
+  }
+
+  async createDocument(document: InsertDocument): Promise<Document> {
+    const [created] = await db.insert(documents).values(document).returning();
+    return created;
+  }
+
+  // Diet Plan methods
+  async getUserDietPlan(userId: string): Promise<DietPlan | undefined> {
+    const result = await db.select().from(dietPlans).where(eq(dietPlans.userId, userId));
+    return result[0];
+  }
+
+  async createDietPlan(dietPlan: InsertDietPlan): Promise<DietPlan> {
+    const [created] = await db.insert(dietPlans).values(dietPlan).returning();
+    return created;
+  }
+
+  async updateDietPlan(id: string, updates: Partial<DietPlan>): Promise<DietPlan | undefined> {
+    const [updated] = await db.update(dietPlans)
+      .set(updates)
+      .where(eq(dietPlans.id, id))
+      .returning();
+    return updated;
+  }
+
+  // Address methods
+  async getUserAddresses(userId: string): Promise<Address[]> {
+    return await db.select().from(addresses).where(eq(addresses.userId, userId));
+  }
+
+  async createAddress(address: InsertAddress): Promise<Address> {
+    const [created] = await db.insert(addresses).values(address).returning();
+    return created;
+  }
+
+  async updateAddress(id: string, updates: Partial<Address>): Promise<Address | undefined> {
+    const [updated] = await db.update(addresses)
+      .set(updates)
+      .where(eq(addresses.id, id))
+      .returning();
+    return updated;
+  }
+
+  async deleteAddress(id: string): Promise<boolean> {
+    const result = await db.delete(addresses).where(eq(addresses.id, id)).returning();
+    return result.length > 0;
+  }
+
+  // Delivery Sync methods
+  async createDeliverySync(sync: InsertDeliverySync): Promise<DeliverySync> {
+    const [created] = await db.insert(deliverySync).values(sync).returning();
+    return created;
+  }
+
+  async getUserDeliverySyncs(userId: string): Promise<DeliverySync[]> {
+    return await db.select().from(deliverySync).where(eq(deliverySync.userId, userId));
   }
 }
 
