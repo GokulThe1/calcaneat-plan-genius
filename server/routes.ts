@@ -1381,8 +1381,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       // Generate PDF
       const { generateDietChartPDF } = await import('./pdfGenerator');
+      const customerName = customer.firstName && customer.lastName 
+        ? `${customer.firstName} ${customer.lastName}`
+        : customer.firstName || customer.email || 'Patient';
       const pdfBuffer = await generateDietChartPDF({
-        customerName: customer.name || 'Patient',
+        customerName,
         customerId: userId,
         macros,
         weeklyPlan,
@@ -1465,28 +1468,31 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Build stages data
       const stages = stageProgresses.map(stage => ({
         stage: stage.stage,
-        status: stage.status,
-        completedAt: stage.completedAt || undefined,
+        status: stage.status || 'pending',
+        completedAt: stage.updatedAt || undefined,
         documents: documents
           .filter(doc => doc.stage === stage.stage)
           .map(doc => ({
-            label: doc.label,
+            label: doc.label || 'Document',
             url: doc.url,
-            uploadedAt: doc.uploadedAt || new Date()
+            uploadedAt: doc.createdAt || new Date()
           }))
       }));
 
       // Generate consolidated report PDF
       const { generateConsolidatedReportPDF } = await import('./pdfGenerator');
+      const customerName = customer.firstName && customer.lastName 
+        ? `${customer.firstName} ${customer.lastName}`
+        : customer.firstName || customer.email || 'Patient';
       const pdfBuffer = await generateConsolidatedReportPDF({
-        customerName: customer.name || 'Patient',
+        customerName,
         customerId: userId,
         stages,
         dietPlan: dietPlan ? {
           macros: dietPlan.macros,
           weeklyPlan: dietPlan.weeklyPlan
         } : undefined,
-        acknowledgements: acknowledgements.map(ack => ({
+        acknowledgements: acknowledgements.map((ack: any) => ({
           taskType: ack.taskType,
           status: ack.status,
           createdAt: ack.createdAt || new Date()
@@ -1588,7 +1594,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Auto-create order for delivery (delivery sync logic)
       const customer = await storage.getUser(userId);
       const addresses = await storage.getUserAddresses(userId);
-      const primaryAddress = addresses.find(a => a.isPrimary) || addresses[0];
+      const primaryAddress = addresses.find(a => a.isDefault) || addresses[0];
       
       if (customer && primaryAddress) {
         // Check if order already exists for this date (any status)
@@ -1600,10 +1606,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
         });
         
         if (!orderExists) {
+          const addressLine = [
+            primaryAddress.line1,
+            primaryAddress.line2,
+            primaryAddress.city,
+            primaryAddress.state,
+            primaryAddress.pincode
+          ].filter(Boolean).join(', ');
+          
           const orderData = insertOrderSchema.parse({
             userId,
             deliveryDate: new Date(date),
-            deliveryAddress: `${primaryAddress.street}, ${primaryAddress.city}, ${primaryAddress.state} ${primaryAddress.zipCode}`,
+            deliveryAddress: addressLine,
             status: 'prepared'
           });
           

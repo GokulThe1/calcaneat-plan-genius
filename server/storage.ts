@@ -5,6 +5,7 @@ import { eq, and } from "drizzle-orm";
 
 export interface IStorage {
   getUser(id: string): Promise<User | undefined>;
+  getUserById(id: string): Promise<User | undefined>;
   getUserByEmail(email: string): Promise<User | undefined>;
   upsertUser(user: UpsertUser): Promise<User>;
   createUser(user: InsertUser): Promise<User>;
@@ -68,6 +69,7 @@ export interface IStorage {
   createAcknowledgement(ack: InsertAcknowledgement): Promise<Acknowledgement>;
   getStaffAcknowledgements(staffId: string): Promise<Acknowledgement[]>;
   getCustomerAcknowledgements(customerId: string): Promise<Acknowledgement[]>;
+  getAcknowledgementsByCustomer(customerId: string): Promise<Acknowledgement[]>;
   updateAcknowledgement(id: string, updates: Partial<Acknowledgement>): Promise<Acknowledgement | undefined>;
   getAllAcknowledgements(): Promise<Acknowledgement[]>;
   
@@ -126,6 +128,10 @@ export class MemStorage implements IStorage {
   }
 
   async getUser(id: string): Promise<User | undefined> {
+    return this.users.get(id);
+  }
+
+  async getUserById(id: string): Promise<User | undefined> {
     return this.users.get(id);
   }
 
@@ -622,6 +628,10 @@ export class MemStorage implements IStorage {
     return Array.from(this.acknowledgements.values()).filter(a => a.customerId === customerId);
   }
 
+  async getAcknowledgementsByCustomer(customerId: string): Promise<Acknowledgement[]> {
+    return this.getCustomerAcknowledgements(customerId);
+  }
+
   async updateAcknowledgement(id: string, updates: Partial<Acknowledgement>): Promise<Acknowledgement | undefined> {
     const ack = this.acknowledgements.get(id);
     if (!ack) return undefined;
@@ -723,6 +733,10 @@ export class DbStorage implements IStorage {
   async getUser(id: string): Promise<User | undefined> {
     const result = await db.select().from(users).where(eq(users.id, id));
     return result[0];
+  }
+
+  async getUserById(id: string): Promise<User | undefined> {
+    return this.getUser(id);
   }
 
   async getUserByEmail(email: string): Promise<User | undefined> {
@@ -1140,6 +1154,10 @@ export class DbStorage implements IStorage {
 
   async getCustomerAcknowledgements(customerId: string): Promise<Acknowledgement[]> {
     return await db.select().from(acknowledgements).where(eq(acknowledgements.customerId, customerId));
+  }
+
+  async getAcknowledgementsByCustomer(customerId: string): Promise<Acknowledgement[]> {
+    return this.getCustomerAcknowledgements(customerId);
   }
 
   async updateAcknowledgement(id: string, updates: Partial<Acknowledgement>): Promise<Acknowledgement | undefined> {
