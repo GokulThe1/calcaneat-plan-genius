@@ -9,7 +9,17 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Calendar, TrendingDown, Flame, Activity, CheckCircle2, Clock, Lock } from 'lucide-react';
+import { Calendar, TrendingDown, Flame, Activity, CheckCircle2, Clock, Lock, Package, CreditCard, Loader2 } from 'lucide-react';
+
+type Plan = {
+  id: string;
+  type: string;
+  listPrice: string;
+  finalPayable: string;
+  isActive: boolean;
+  startDate: string | null;
+  durationDays: number;
+};
 import breakfastImage from '@assets/generated_images/Healthy_breakfast_bowl_640a6a89.png';
 import lunchImage from '@assets/generated_images/Healthy_Buddha_bowl_lunch_368a96fc.png';
 import dinnerImage from '@assets/generated_images/Grilled_chicken_dinner_plate_b60850a5.png';
@@ -51,8 +61,13 @@ export default function Dashboard() {
     enabled: !!user,
   });
 
-  const { data: milestones = [] } = useQuery<Milestone[]>({
+  const { data: milestones = [], isLoading: isMilestonesLoading } = useQuery<Milestone[]>({
     queryKey: ['/api/user/milestones'],
+    enabled: !!user,
+  });
+
+  const { data: plan, isLoading: isPlanLoading } = useQuery<Plan>({
+    queryKey: ['/api/user/plan'],
     enabled: !!user,
   });
 
@@ -89,61 +104,163 @@ export default function Dashboard() {
               <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
                 <div>
                   <h1 className="font-display text-3xl md:text-4xl font-bold" data-testid="text-dashboard-title">
-                    Your Meal Plan
+                    Your Wellness Dashboard
                   </h1>
                   <p className="text-muted-foreground mt-1" data-testid="text-dashboard-subtitle">
-                    Track your progress and manage your meals
+                    Track your progress and manage your clinical journey
                   </p>
                 </div>
-                <Badge className="w-fit" data-testid="badge-plan-active">
-                  <Calendar className="mr-2 h-4 w-4" />
-                  Premium Clinical Plan
-                </Badge>
+                {plan && (
+                  <Badge className="w-fit" data-testid="badge-plan-active">
+                    <Calendar className="mr-2 h-4 w-4" />
+                    {plan.type} Plan
+                  </Badge>
+                )}
               </div>
+
+              {isPlanLoading ? (
+                <div className="grid md:grid-cols-3 gap-4">
+                  {[1, 2, 3].map((i) => (
+                    <Card key={i}>
+                      <CardHeader className="flex flex-row items-center justify-between gap-2 space-y-0 pb-2">
+                        <div className="h-4 w-20 bg-muted animate-pulse rounded" />
+                        <div className="h-4 w-4 bg-muted animate-pulse rounded-full" />
+                      </CardHeader>
+                      <CardContent>
+                        <div className="h-8 w-32 bg-muted animate-pulse rounded mb-2" />
+                        <div className="h-3 w-24 bg-muted animate-pulse rounded" />
+                      </CardContent>
+                    </Card>
+                  ))}
+                </div>
+              ) : plan ? (
+                <div className="grid md:grid-cols-3 gap-4">
+                  <Card>
+                    <CardHeader className="flex flex-row items-center justify-between gap-2 space-y-0 pb-2">
+                      <CardTitle className="text-sm font-medium">Plan Type</CardTitle>
+                      <Package className="h-4 w-4 text-primary" />
+                    </CardHeader>
+                    <CardContent>
+                      <div className="text-2xl font-semibold" data-testid="text-plan-type">
+                        {plan.type}
+                      </div>
+                      <p className="text-xs text-muted-foreground mt-1">
+                        {plan.durationDays} days duration
+                      </p>
+                    </CardContent>
+                  </Card>
+
+                  <Card>
+                    <CardHeader className="flex flex-row items-center justify-between gap-2 space-y-0 pb-2">
+                      <CardTitle className="text-sm font-medium">Plan Value</CardTitle>
+                      <CreditCard className="h-4 w-4 text-chart-2" />
+                    </CardHeader>
+                    <CardContent>
+                      <div className="text-2xl font-mono font-semibold" data-testid="text-plan-value">
+                        ₹{parseFloat(plan.listPrice).toLocaleString('en-IN')}
+                      </div>
+                      <p className="text-xs text-muted-foreground mt-1">
+                        Total plan value
+                      </p>
+                    </CardContent>
+                  </Card>
+
+                  <Card>
+                    <CardHeader className="flex flex-row items-center justify-between gap-2 space-y-0 pb-2">
+                      <CardTitle className="text-sm font-medium">Status</CardTitle>
+                      <Activity className="h-4 w-4 text-chart-3" />
+                    </CardHeader>
+                    <CardContent>
+                      <div className="flex items-center gap-2">
+                        <Badge variant={plan.isActive ? 'default' : 'secondary'} data-testid="badge-plan-status">
+                          {plan.isActive ? 'Active' : 'Pending Activation'}
+                        </Badge>
+                      </div>
+                      {plan.startDate && (
+                        <p className="text-xs text-muted-foreground mt-2">
+                          Started: {plan.startDate}
+                        </p>
+                      )}
+                    </CardContent>
+                  </Card>
+                </div>
+              ) : null}
 
               <Card className="border-primary/30 bg-primary/5">
                 <CardHeader>
                   <CardTitle className="flex items-center gap-2">
                     <Activity className="h-5 w-5" />
-                    Your Journey Milestones
+                    Your Clinical Journey - 6 Stage Process
                   </CardTitle>
                 </CardHeader>
                 <CardContent>
-                  {milestones.length > 0 ? (
+                  {isMilestonesLoading ? (
+                    <div className="flex justify-center py-12">
+                      <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+                    </div>
+                  ) : milestones.length > 0 ? (
                     <>
-                      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
-                        {milestones.map((milestone) => {
-                          const StatusIcon = getStatusIcon(milestone.status);
-                          const statusColor = getStatusColor(milestone.status);
-                          
-                          return (
-                            <div
-                              key={milestone.id}
-                              className="flex flex-col items-center gap-2 p-4 rounded-md bg-background"
-                              data-testid={`milestone-${milestone.id}`}
-                            >
-                              <div className={`flex h-12 w-12 items-center justify-center rounded-full ${
-                                milestone.status === 'completed' ? 'bg-primary/10' :
-                                milestone.status === 'in_progress' ? 'bg-chart-2/10' :
-                                'bg-muted'
-                              }`}>
-                                <StatusIcon className={`h-6 w-6 ${statusColor}`} />
+                      <div className="relative">
+                        {/* Horizontal connector line */}
+                        <div className="absolute top-6 left-0 right-0 h-0.5 bg-border" aria-hidden="true" />
+                        
+                        {/* Stage cards in horizontal layout */}
+                        <div className="relative flex justify-between gap-2 overflow-x-auto pb-4">
+                          {milestones.map((milestone, index) => {
+                            const StatusIcon = getStatusIcon(milestone.status);
+                            const statusColor = getStatusColor(milestone.status);
+                            const isCompleted = milestone.status === 'completed';
+                            const isInProgress = milestone.status === 'in_progress';
+                            
+                            return (
+                              <div
+                                key={milestone.id}
+                                className="flex flex-col items-center min-w-[140px] flex-1"
+                                data-testid={`milestone-${milestone.id}`}
+                              >
+                                {/* Stage number and icon */}
+                                <div className={`relative z-10 flex h-12 w-12 items-center justify-center rounded-full border-2 ${
+                                  isCompleted ? 'bg-primary border-primary' :
+                                  isInProgress ? 'bg-chart-2 border-chart-2' :
+                                  'bg-background border-border'
+                                }`}>
+                                  <StatusIcon className={`h-6 w-6 ${
+                                    isCompleted || isInProgress ? 'text-white' : 'text-muted-foreground'
+                                  }`} />
+                                </div>
+                                
+                                {/* Stage name and status */}
+                                <div className="mt-3 text-center">
+                                  <p className={`text-xs font-medium ${
+                                    isCompleted || isInProgress ? 'text-foreground' : 'text-muted-foreground'
+                                  }`} data-testid={`text-milestone-${milestone.id}`}>
+                                    Stage {index + 1}
+                                  </p>
+                                  <p className={`text-xs mt-1 ${
+                                    isCompleted || isInProgress ? 'text-foreground' : 'text-muted-foreground'
+                                  }`}>
+                                    {milestone.name}
+                                  </p>
+                                  {isInProgress && (
+                                    <Badge variant="outline" className="text-xs mt-2">
+                                      In Progress
+                                    </Badge>
+                                  )}
+                                </div>
                               </div>
-                              <p className="text-xs text-center font-medium" data-testid={`text-milestone-${milestone.id}`}>
-                                {milestone.name}
-                              </p>
-                              {milestone.status === 'in_progress' && (
-                                <Badge variant="outline" className="text-xs">In Progress</Badge>
-                              )}
-                            </div>
-                          );
-                        })}
+                            );
+                          })}
+                        </div>
                       </div>
-                      <div className="mt-6">
-                        <Progress value={progressPercentage} data-testid="progress-milestones" />
-                        <p className="text-sm text-muted-foreground mt-2">
-                          {completedCount} of {totalMilestones} milestones completed
-                        </p>
+                      
+                      <div className="mt-6 pt-6 border-t">
+                        <div className="flex items-center justify-between mb-3">
+                          <p className="text-sm font-medium">Overall Progress</p>
+                          <p className="text-sm text-muted-foreground">
+                            {completedCount} of {totalMilestones} stages completed
+                          </p>
+                        </div>
+                        <Progress value={progressPercentage} data-testid="progress-milestones" className="h-2" />
                       </div>
                     </>
                   ) : (
