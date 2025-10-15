@@ -2,6 +2,8 @@ import type { Express, RequestHandler } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { setupAuth, isAuthenticated } from "./replitAuth";
+import { ObjectStorageService, ObjectNotFoundError } from "./objectStorage";
+import { ObjectPermission } from "./objectAcl";
 import { 
   insertReportSchema, 
   insertOrderSchema,
@@ -921,6 +923,84 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       console.error("Error updating delivery sync:", error);
       res.status(500).json({ message: "Failed to update delivery sync" });
+    }
+  });
+
+  // ==================== OBJECT STORAGE ROUTES ====================
+  // Referenced from javascript_object_storage integration
+  
+  // Get presigned URL for file upload (authenticated users)
+  app.post('/api/objects/upload', isAuthenticated, async (req, res) => {
+    try {
+      const objectStorageService = new ObjectStorageService();
+      const uploadURL = await objectStorageService.getObjectEntityUploadURL();
+      res.json({ uploadURL });
+    } catch (error) {
+      console.error("Error getting upload URL:", error);
+      res.status(500).json({ message: "Failed to get upload URL" });
+    }
+  });
+
+  // Download private objects with ACL check
+  app.get('/objects/:objectPath(*)', isAuthenticated, async (req: any, res) => {
+    const userId = req.user?.claims?.sub;
+    const objectStorageService = new ObjectStorageService();
+    try {
+      const objectFile = await objectStorageService.getObjectEntityFile(req.path);
+      const canAccess = await objectStorageService.canAccessObjectEntity({
+        objectFile,
+        userId: userId,
+        requestedPermission: ObjectPermission.READ,
+      });
+      if (!canAccess) {
+        return res.sendStatus(401);
+      }
+      objectStorageService.downloadObject(objectFile, res);
+    } catch (error) {
+      console.error("Error accessing object:", error);
+      if (error instanceof ObjectNotFoundError) {
+        return res.sendStatus(404);
+      }
+      return res.sendStatus(500);
+    }
+  });
+
+  // Create document record after upload (admin/clinical only)
+  app.post('/api/admin/documents', isAuthenticated, isAdmin, async (req: any, res) => {
+    try {
+      const uploaderId = req.user.claims.sub;
+      const objectStorageService = new ObjectStorageService();
+      
+      // The document owner should be the patient (userId in body), not the uploader
+      const documentOwnerId = req.body.userId;
+      if (!documentOwnerId) {
+        return res.status(400).json({ message: "userId is required" });
+      }
+      
+      // Normalize the uploaded file URL and set ACL policy with patient as owner
+      const objectPath = await objectStorageService.trySetObjectEntityAclPolicy(
+        req.body.fileUrl,
+        {
+          owner: documentOwnerId,
+          visibility: "private"
+        }
+      );
+      
+      // Create document record in database
+      const documentData = insertDocumentSchema.parse({
+        ...req.body,
+        fileUrl: objectPath,
+        uploadedBy: uploaderId
+      });
+      
+      const document = await storage.createDocument(documentData);
+      res.json(document);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ message: "Invalid document data", errors: error.errors });
+      }
+      console.error("Error creating document:", error);
+      res.status(500).json({ message: "Failed to create document" });
     }
   });
 

@@ -83,6 +83,9 @@ Preferred communication style: Simple, everyday language.
 - GET /api/auth/user: Retrieves authenticated user details
 - GET /api/admin/customers: Lists all customer accounts (admin only)
 - PATCH /api/admin/milestones/:id: Updates milestone status (admin only)
+- POST /api/objects/upload: Gets presigned URL for file upload (authenticated users)
+- GET /objects/:objectPath: Downloads private files with ACL verification (authenticated users)
+- POST /api/admin/documents: Creates document record after upload (admin/clinical only)
 
 ### External Dependencies
 
@@ -90,6 +93,10 @@ Preferred communication style: Simple, everyday language.
 - **Stripe**: Payment processing integration (@stripe/stripe-js, @stripe/react-stripe-js)
 - **Replit Auth**: OAuth authentication provider via OpenID Connect
 - **Neon Database**: Serverless PostgreSQL hosting with WebSocket support
+- **Replit Object Storage**: Google Cloud Storage-backed file storage for protected document uploads
+  - Presigned URL uploads via Uppy for medical documents, test results, and diet charts
+  - ACL-based access control (owner-based permissions)
+  - Private document directory with authenticated download endpoints
 
 **Development Tools**
 - **Replit Plugins**: Runtime error overlay, cartographer (dev mode), dev banner
