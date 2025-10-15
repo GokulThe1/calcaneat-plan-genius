@@ -1464,7 +1464,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const statusSchema = z.enum(['pending', 'acknowledged', 'completed']);
       const status = statusSchema.parse(req.body.status);
       
-      const updates: Partial<typeof acknowledgements.$inferSelect> = {
+      const updates: { status: 'pending' | 'acknowledged' | 'completed'; acknowledgedAt?: Date } = {
         status
       };
       
