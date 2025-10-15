@@ -1348,8 +1348,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const deliveryPersonId = req.user.claims.sub;
       
-      // Get orders assigned to this delivery person
-      const allOrders = await storage.getOrdersByStatus('prepared');
+      // Get orders assigned to this delivery person (both prepared and in_transit)
+      const preparedOrders = await storage.getOrdersByStatus('prepared');
+      const inTransitOrders = await storage.getOrdersByStatus('in_transit');
+      const allOrders = [...preparedOrders, ...inTransitOrders];
       const assignedOrders = allOrders.filter(o => o.assignedDeliveryPersonId === deliveryPersonId);
       
       res.json(assignedOrders);

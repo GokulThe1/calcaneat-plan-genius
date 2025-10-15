@@ -22,6 +22,7 @@ import ConsultantPanel from "@/pages/ConsultantPanel";
 import LabTechnicianPanel from "@/pages/LabTechnicianPanel";
 import NutritionistPanel from "@/pages/NutritionistPanel";
 import ChefPanel from "@/pages/ChefPanel";
+import DeliveryPanel from "@/pages/DeliveryPanel";
 import NotFound from "@/pages/not-found";
 
 function Router() {
@@ -60,6 +61,7 @@ function Router() {
           <Route path="/lab" component={LabTechnicianPanel} />
           <Route path="/nutritionist" component={NutritionistPanel} />
           <Route path="/chef" component={ChefPanel} />
+          <Route path="/delivery-panel" component={DeliveryPanel} />
           <Route component={NotFound} />
         </>
       )}
