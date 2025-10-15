@@ -20,14 +20,17 @@ import {
 import { z } from "zod";
 import Razorpay from "razorpay";
 
-if (!process.env.RAZORPAY_KEY_ID || !process.env.RAZORPAY_KEY_SECRET) {
-  throw new Error('Missing required Razorpay secrets: RAZORPAY_KEY_ID and RAZORPAY_KEY_SECRET');
+// Optional Razorpay initialization (payment gateway excluded for now)
+let razorpay: Razorpay | null = null;
+if (process.env.RAZORPAY_KEY_ID && process.env.RAZORPAY_KEY_SECRET) {
+  razorpay = new Razorpay({
+    key_id: process.env.RAZORPAY_KEY_ID,
+    key_secret: process.env.RAZORPAY_KEY_SECRET,
+  });
+  console.log('Razorpay initialized successfully');
+} else {
+  console.log('Razorpay not configured - payment gateway disabled');
 }
-
-const razorpay = new Razorpay({
-  key_id: process.env.RAZORPAY_KEY_ID,
-  key_secret: process.env.RAZORPAY_KEY_SECRET,
-});
 
 const isAdmin: RequestHandler = async (req: any, res, next) => {
   if (!req.user) {
@@ -609,6 +612,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.post('/api/create-razorpay-order', isAuthenticated, async (req: any, res) => {
     try {
+      // Check if Razorpay is configured
+      if (!razorpay) {
+        return res.status(501).json({ message: "Payment gateway not configured" });
+      }
+
       const paymentSchema = z.object({
         sessionId: z.string(),
       });
