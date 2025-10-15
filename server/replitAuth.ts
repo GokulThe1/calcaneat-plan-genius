@@ -139,12 +139,13 @@ export const isAuthenticated: RequestHandler = async (req, res, next) => {
     return next();
   }
 
-  const refreshToken = user.refresh_token;
-  if (!refreshToken) {
-    res.status(401).json({ message: "Unauthorized" });
+  // Auto-login sessions don't have refresh tokens, require re-login when expired
+  if (user.isAutoLogin || !user.refresh_token) {
+    res.status(401).json({ message: "Unauthorized - Session expired" });
     return;
   }
 
+  const refreshToken = user.refresh_token;
   try {
     const config = await getOidcConfig();
     const tokenResponse = await client.refreshTokenGrant(config, refreshToken);

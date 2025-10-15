@@ -43,6 +43,8 @@ Preferred communication style: Simple, everyday language.
 - Passport.js strategy for OAuth flow
 - Session persistence in PostgreSQL via connect-pg-simple
 - Role-based middleware for endpoint protection
+- Auto-login support: New users are automatically logged in after signup for 7 days
+- Session types: OIDC sessions (with token refresh) and auto-login sessions (7-day fixed expiration)
 
 **API Design Patterns**
 - Centralized error handling middleware

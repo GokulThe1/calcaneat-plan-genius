@@ -359,7 +359,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Complete signup with consultation (unauthenticated - new users)
-  app.post('/api/signup-with-consultation', async (req, res) => {
+  app.post('/api/signup-with-consultation', async (req: any, res) => {
     try {
       console.log("Received signup data:", JSON.stringify(req.body, null, 2));
       
@@ -427,12 +427,43 @@ export async function registerRoutes(app: Express): Promise<Server> {
           order: i + 1,
         });
       }
-      
-      res.json({ 
-        success: true, 
-        userId: user.id, 
-        paymentSessionId: paymentSession.id,
-        consultationId: consultation.id,
+
+      // Auto-login: Create session for the new user
+      // Match the structure expected by Passport serialization (see replitAuth.ts)
+      const sessionUser = {
+        claims: { 
+          sub: user.id,
+          email: user.email,
+          first_name: user.firstName,
+          last_name: user.lastName,
+          exp: Math.floor(Date.now() / 1000) + (7 * 24 * 60 * 60), // 7 days
+        },
+        access_token: 'auto-login-token',
+        refresh_token: null, // No refresh token for auto-login sessions
+        expires_at: Math.floor(Date.now() / 1000) + (7 * 24 * 60 * 60),
+        isAutoLogin: true, // Flag to identify auto-login sessions
+      };
+
+      req.login(sessionUser, (err: any) => {
+        if (err) {
+          console.error("Auto-login failed:", err);
+          // Still return success even if auto-login fails
+          return res.json({ 
+            success: true, 
+            userId: user.id, 
+            paymentSessionId: paymentSession.id,
+            consultationId: consultation.id,
+            autoLoginFailed: true,
+          });
+        }
+
+        res.json({ 
+          success: true, 
+          userId: user.id, 
+          paymentSessionId: paymentSession.id,
+          consultationId: consultation.id,
+          autoLogin: true,
+        });
       });
     } catch (error: any) {
       if (error instanceof z.ZodError) {
