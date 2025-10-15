@@ -25,7 +25,10 @@ export interface IStorage {
   getUserConsultations(userId: string): Promise<Consultation[]>;
   
   getOrdersByStatus(status: string): Promise<Order[]>;
+  getOrderById(id: string): Promise<Order | undefined>;
+  getOrdersByUserId(userId: string): Promise<Order[]>;
   updateOrderStatus(id: string, status: string): Promise<Order | undefined>;
+  updateOrder(id: string, data: Partial<InsertOrder>): Promise<Order | undefined>;
   createOrder(order: InsertOrder): Promise<Order>;
   
   createPaymentSession(session: InsertPaymentSession): Promise<PaymentSession>;
@@ -337,6 +340,30 @@ export class MemStorage implements IStorage {
     };
     this.orders.set(id, order);
     return order;
+  }
+
+  async getOrderById(id: string): Promise<Order | undefined> {
+    return this.orders.get(id);
+  }
+
+  async getOrdersByUserId(userId: string): Promise<Order[]> {
+    return Array.from(this.orders.values()).filter(
+      (order) => order.userId === userId
+    );
+  }
+
+  async updateOrder(id: string, data: Partial<InsertOrder>): Promise<Order | undefined> {
+    const order = this.orders.get(id);
+    if (!order) return undefined;
+    
+    const updated: Order = {
+      ...order,
+      ...data,
+      id: order.id, // Preserve ID
+      createdAt: order.createdAt // Preserve creation date
+    };
+    this.orders.set(id, updated);
+    return updated;
   }
 
   async createPaymentSession(insertSession: InsertPaymentSession): Promise<PaymentSession> {
@@ -933,6 +960,23 @@ export class DbStorage implements IStorage {
   async createOrder(order: InsertOrder): Promise<Order> {
     const [created] = await db.insert(orders).values(order).returning();
     return created;
+  }
+
+  async getOrderById(id: string): Promise<Order | undefined> {
+    const result = await db.select().from(orders).where(eq(orders.id, id));
+    return result[0];
+  }
+
+  async getOrdersByUserId(userId: string): Promise<Order[]> {
+    return await db.select().from(orders).where(eq(orders.userId, userId));
+  }
+
+  async updateOrder(id: string, data: Partial<InsertOrder>): Promise<Order | undefined> {
+    const [updated] = await db.update(orders)
+      .set(data)
+      .where(eq(orders.id, id))
+      .returning();
+    return updated;
   }
 
   async createPaymentSession(session: InsertPaymentSession): Promise<PaymentSession> {

@@ -270,6 +270,49 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Assign delivery person to order (admin only)
+  app.patch('/api/admin/orders/:orderId/assign', isAuthenticated, isAdmin, async (req: any, res) => {
+    try {
+      const { orderId } = req.params;
+      const assignSchema = z.object({ deliveryPersonId: z.string().min(1) });
+      const { deliveryPersonId } = assignSchema.parse(req.body);
+
+      // Validate delivery person exists and has delivery role
+      const deliveryPerson = await storage.getUser(deliveryPersonId);
+      if (!deliveryPerson || deliveryPerson.role !== 'delivery') {
+        return res.status(400).json({ message: "Invalid delivery person" });
+      }
+
+      // Update order with assigned delivery person
+      const order = await storage.getOrderById(orderId);
+      if (!order) {
+        return res.status(404).json({ message: "Order not found" });
+      }
+
+      const updatedOrder = await storage.updateOrder(orderId, {
+        assignedDeliveryPersonId: deliveryPersonId
+      });
+
+      // Log assignment activity
+      const activityData = insertStaffActivityLogSchema.parse({
+        staffId: req.user.claims.sub,
+        customerId: order.userId,
+        actionType: 'delivery_assigned',
+        description: `Assigned delivery to ${deliveryPerson.firstName} ${deliveryPerson.lastName}`,
+        metadata: { orderId, deliveryPersonId }
+      });
+      await storage.createStaffActivity(activityData);
+
+      res.json(updatedOrder);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ message: "Invalid request", errors: error.errors });
+      }
+      console.error("Error assigning delivery person:", error);
+      res.status(500).json({ message: "Failed to assign delivery person" });
+    }
+  });
+
   app.get('/api/kitchen/orders/:status', isAuthenticated, isKitchen, async (req: any, res) => {
     try {
       const orders = await storage.getOrdersByStatus(req.params.status);
@@ -282,7 +325,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.patch('/api/kitchen/orders/:id', isAuthenticated, isKitchen, async (req: any, res) => {
     try {
-      const statusSchema = z.object({ status: z.enum(['pending', 'preparing', 'ready', 'out_for_delivery', 'delivered']) });
+      const statusSchema = z.object({ status: z.enum(['pending', 'preparing', 'ready', 'prepared', 'out_for_delivery', 'in_transit', 'delivered']) });
       const { status } = statusSchema.parse(req.body);
       const order = await storage.updateOrderStatus(req.params.id, status);
       
@@ -312,7 +355,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.patch('/api/delivery/orders/:id', isAuthenticated, isDelivery, async (req: any, res) => {
     try {
-      const statusSchema = z.object({ status: z.enum(['ready', 'out_for_delivery', 'delivered']) });
+      const statusSchema = z.object({ status: z.enum(['ready', 'prepared', 'out_for_delivery', 'in_transit', 'delivered']) });
       const { status } = statusSchema.parse(req.body);
       const order = await storage.updateOrderStatus(req.params.id, status);
       
@@ -1521,17 +1564,46 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post('/api/chef/mark-prepared', isAuthenticated, isChef, async (req: any, res) => {
     try {
       const staffId = req.user.claims.sub;
+      const { userId, mealType, date } = req.body;
       
       // Validate and log activity
       const activityData = insertStaffActivityLogSchema.parse({
         staffId,
-        customerId: req.body.userId,
+        customerId: userId,
         actionType: 'meal_prepared',
-        description: `Marked ${req.body.mealType} as prepared for ${req.body.date}`,
-        metadata: { mealType: req.body.mealType, date: req.body.date }
+        description: `Marked ${mealType} as prepared for ${date}`,
+        metadata: { mealType, date }
       });
       
       await storage.createStaffActivity(activityData);
+      
+      // Auto-create order for delivery (delivery sync logic)
+      const customer = await storage.getUser(userId);
+      const addresses = await storage.getUserAddresses(userId);
+      const primaryAddress = addresses.find(a => a.isPrimary) || addresses[0];
+      
+      if (customer && primaryAddress) {
+        // Check if order already exists for this date (any status)
+        const existingOrders = await storage.getOrdersByUserId(userId);
+        const orderExists = existingOrders.some(order => {
+          const orderDate = new Date(order.deliveryDate).toDateString();
+          const requestDate = new Date(date).toDateString();
+          return orderDate === requestDate;
+        });
+        
+        if (!orderExists) {
+          const orderData = insertOrderSchema.parse({
+            userId,
+            deliveryDate: new Date(date),
+            deliveryAddress: `${primaryAddress.street}, ${primaryAddress.city}, ${primaryAddress.state} ${primaryAddress.zipCode}`,
+            status: 'prepared'
+          });
+          
+          await storage.createOrder(orderData);
+        }
+      } else if (customer && !primaryAddress) {
+        console.warn(`Chef marked meal prepared for user ${userId}, but user has no delivery address. Order not created.`);
+      }
       
       res.json({ success: true });
     } catch (error) {
