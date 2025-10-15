@@ -14,6 +14,42 @@ export type Database = {
   }
   public: {
     Tables: {
+      acknowledgements: {
+        Row: {
+          acknowledged_at: string | null
+          completed_at: string | null
+          created_at: string | null
+          customer_id: string
+          id: string
+          staff_id: string
+          stage: number | null
+          status: string
+          task_type: string
+        }
+        Insert: {
+          acknowledged_at?: string | null
+          completed_at?: string | null
+          created_at?: string | null
+          customer_id: string
+          id?: string
+          staff_id: string
+          stage?: number | null
+          status?: string
+          task_type: string
+        }
+        Update: {
+          acknowledged_at?: string | null
+          completed_at?: string | null
+          created_at?: string | null
+          customer_id?: string
+          id?: string
+          staff_id?: string
+          stage?: number | null
+          status?: string
+          task_type?: string
+        }
+        Relationships: []
+      }
       ai_responses: {
         Row: {
           age: number | null
@@ -151,6 +187,186 @@ export type Database = {
           },
         ]
       }
+      consultations: {
+        Row: {
+          consultant_id: string | null
+          consultation_fee_paid: number | null
+          created_at: string | null
+          doctor_name: string | null
+          id: string
+          meeting_type: string
+          notes: string | null
+          scheduled_date: string
+          scheduled_time: string
+          status: string
+          user_id: string
+        }
+        Insert: {
+          consultant_id?: string | null
+          consultation_fee_paid?: number | null
+          created_at?: string | null
+          doctor_name?: string | null
+          id?: string
+          meeting_type: string
+          notes?: string | null
+          scheduled_date: string
+          scheduled_time: string
+          status?: string
+          user_id: string
+        }
+        Update: {
+          consultant_id?: string | null
+          consultation_fee_paid?: number | null
+          created_at?: string | null
+          doctor_name?: string | null
+          id?: string
+          meeting_type?: string
+          notes?: string | null
+          scheduled_date?: string
+          scheduled_time?: string
+          status?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      customer_profiles: {
+        Row: {
+          activity_level: string | null
+          age: number | null
+          alcohol_consumption: string | null
+          allergies: string[] | null
+          created_at: string | null
+          daily_budget: number | null
+          dietary_preference: string | null
+          flavor_preference: string | null
+          gender: string | null
+          goal: string | null
+          health_concerns: string[] | null
+          height: number | null
+          id: string
+          late_night_eating: boolean | null
+          meals_per_day: string | null
+          medications: boolean | null
+          quiz_answers: Json | null
+          results_timeline: string | null
+          sleep_time: string | null
+          snacks_and_desserts: boolean | null
+          updated_at: string | null
+          user_id: string
+          wake_up_time: string | null
+          water_intake: string | null
+          weight: number | null
+        }
+        Insert: {
+          activity_level?: string | null
+          age?: number | null
+          alcohol_consumption?: string | null
+          allergies?: string[] | null
+          created_at?: string | null
+          daily_budget?: number | null
+          dietary_preference?: string | null
+          flavor_preference?: string | null
+          gender?: string | null
+          goal?: string | null
+          health_concerns?: string[] | null
+          height?: number | null
+          id?: string
+          late_night_eating?: boolean | null
+          meals_per_day?: string | null
+          medications?: boolean | null
+          quiz_answers?: Json | null
+          results_timeline?: string | null
+          sleep_time?: string | null
+          snacks_and_desserts?: boolean | null
+          updated_at?: string | null
+          user_id: string
+          wake_up_time?: string | null
+          water_intake?: string | null
+          weight?: number | null
+        }
+        Update: {
+          activity_level?: string | null
+          age?: number | null
+          alcohol_consumption?: string | null
+          allergies?: string[] | null
+          created_at?: string | null
+          daily_budget?: number | null
+          dietary_preference?: string | null
+          flavor_preference?: string | null
+          gender?: string | null
+          goal?: string | null
+          health_concerns?: string[] | null
+          height?: number | null
+          id?: string
+          late_night_eating?: boolean | null
+          meals_per_day?: string | null
+          medications?: boolean | null
+          quiz_answers?: Json | null
+          results_timeline?: string | null
+          sleep_time?: string | null
+          snacks_and_desserts?: boolean | null
+          updated_at?: string | null
+          user_id?: string
+          wake_up_time?: string | null
+          water_intake?: string | null
+          weight?: number | null
+        }
+        Relationships: []
+      }
+      delivery_location: {
+        Row: {
+          delivery_person_id: string
+          id: string
+          last_updated: string | null
+          latitude: number
+          longitude: number
+          status: string
+        }
+        Insert: {
+          delivery_person_id: string
+          id?: string
+          last_updated?: string | null
+          latitude: number
+          longitude: number
+          status?: string
+        }
+        Update: {
+          delivery_person_id?: string
+          id?: string
+          last_updated?: string | null
+          latitude?: number
+          longitude?: number
+          status?: string
+        }
+        Relationships: []
+      }
+      diet_plans: {
+        Row: {
+          created_at: string | null
+          id: string
+          macros: Json | null
+          pdf_url: string | null
+          user_id: string
+          weekly_plan: Json | null
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          macros?: Json | null
+          pdf_url?: string | null
+          user_id: string
+          weekly_plan?: Json | null
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          macros?: Json | null
+          pdf_url?: string | null
+          user_id?: string
+          weekly_plan?: Json | null
+        }
+        Relationships: []
+      }
       doctors: {
         Row: {
           available: boolean | null
@@ -175,6 +391,84 @@ export type Database = {
           image_url?: string | null
           name?: string
           specialization?: string
+        }
+        Relationships: []
+      }
+      documents: {
+        Row: {
+          created_at: string | null
+          id: string
+          label: string | null
+          meta: Json | null
+          mime_type: string | null
+          stage: number | null
+          uploaded_by_role: string | null
+          url: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          label?: string | null
+          meta?: Json | null
+          mime_type?: string | null
+          stage?: number | null
+          uploaded_by_role?: string | null
+          url: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          label?: string | null
+          meta?: Json | null
+          mime_type?: string | null
+          stage?: number | null
+          uploaded_by_role?: string | null
+          url?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      plans: {
+        Row: {
+          consultation_fee_credited: number | null
+          created_at: string | null
+          discount_amount: number | null
+          duration_days: number | null
+          final_payable: number | null
+          id: string
+          is_active: boolean | null
+          list_price: number | null
+          start_date: string | null
+          type: string | null
+          user_id: string
+        }
+        Insert: {
+          consultation_fee_credited?: number | null
+          created_at?: string | null
+          discount_amount?: number | null
+          duration_days?: number | null
+          final_payable?: number | null
+          id?: string
+          is_active?: boolean | null
+          list_price?: number | null
+          start_date?: string | null
+          type?: string | null
+          user_id: string
+        }
+        Update: {
+          consultation_fee_credited?: number | null
+          created_at?: string | null
+          discount_amount?: number | null
+          duration_days?: number | null
+          final_payable?: number | null
+          id?: string
+          is_active?: boolean | null
+          list_price?: number | null
+          start_date?: string | null
+          type?: string | null
+          user_id?: string
         }
         Relationships: []
       }
@@ -209,6 +503,66 @@ export type Database = {
           id?: string
           phone?: string | null
           plan_type?: Database["public"]["Enums"]["plan_type"] | null
+          updated_at?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
+      staff_activity_log: {
+        Row: {
+          action_type: string
+          created_at: string | null
+          customer_id: string | null
+          description: string | null
+          id: string
+          metadata: Json | null
+          staff_id: string
+          stage: number | null
+        }
+        Insert: {
+          action_type: string
+          created_at?: string | null
+          customer_id?: string | null
+          description?: string | null
+          id?: string
+          metadata?: Json | null
+          staff_id: string
+          stage?: number | null
+        }
+        Update: {
+          action_type?: string
+          created_at?: string | null
+          customer_id?: string | null
+          description?: string | null
+          id?: string
+          metadata?: Json | null
+          staff_id?: string
+          stage?: number | null
+        }
+        Relationships: []
+      }
+      stage_progress: {
+        Row: {
+          id: string
+          name: string
+          stage: number
+          status: string | null
+          updated_at: string | null
+          user_id: string
+        }
+        Insert: {
+          id?: string
+          name: string
+          stage: number
+          status?: string | null
+          updated_at?: string | null
+          user_id: string
+        }
+        Update: {
+          id?: string
+          name?: string
+          stage?: number
+          status?: string | null
           updated_at?: string | null
           user_id?: string
         }
