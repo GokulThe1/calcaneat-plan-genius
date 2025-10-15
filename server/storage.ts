@@ -35,6 +35,7 @@ export interface IStorage {
   
   // New Clinical Plan methods
   createPlan(plan: InsertPlan): Promise<Plan>;
+  getPlan(id: string): Promise<Plan | undefined>;
   getUserPlan(userId: string): Promise<Plan | undefined>;
   updatePlan(id: string, updates: Partial<Plan>): Promise<Plan | undefined>;
   
@@ -51,12 +52,14 @@ export interface IStorage {
   updateDietPlan(id: string, updates: Partial<DietPlan>): Promise<DietPlan | undefined>;
   
   getUserAddresses(userId: string): Promise<Address[]>;
+  getAddress(id: string): Promise<Address | undefined>;
   createAddress(address: InsertAddress): Promise<Address>;
   updateAddress(id: string, updates: Partial<Address>): Promise<Address | undefined>;
   deleteAddress(id: string): Promise<boolean>;
   
   createDeliverySync(sync: InsertDeliverySync): Promise<DeliverySync>;
   getUserDeliverySyncs(userId: string): Promise<DeliverySync[]>;
+  updateDeliverySync(id: string, updates: Partial<DeliverySync>): Promise<DeliverySync | undefined>;
 }
 
 export class MemStorage implements IStorage {
@@ -375,6 +378,10 @@ export class MemStorage implements IStorage {
     return plan;
   }
 
+  async getPlan(id: string): Promise<Plan | undefined> {
+    return this.plans.get(id);
+  }
+
   async getUserPlan(userId: string): Promise<Plan | undefined> {
     return Array.from(this.plans.values()).find(p => p.userId === userId && p.isActive);
   }
@@ -471,6 +478,10 @@ export class MemStorage implements IStorage {
     return Array.from(this.addresses.values()).filter(a => a.userId === userId);
   }
 
+  async getAddress(id: string): Promise<Address | undefined> {
+    return this.addresses.get(id);
+  }
+
   async createAddress(insertAddress: InsertAddress): Promise<Address> {
     const id = randomUUID();
     const address: Address = {
@@ -521,6 +532,14 @@ export class MemStorage implements IStorage {
 
   async getUserDeliverySyncs(userId: string): Promise<DeliverySync[]> {
     return Array.from(this.deliverySyncs.values()).filter(s => s.userId === userId);
+  }
+
+  async updateDeliverySync(id: string, updates: Partial<DeliverySync>): Promise<DeliverySync | undefined> {
+    const sync = this.deliverySyncs.get(id);
+    if (!sync) return undefined;
+    const updated: DeliverySync = { ...sync, ...updates };
+    this.deliverySyncs.set(id, updated);
+    return updated;
   }
 }
 
@@ -800,6 +819,11 @@ export class DbStorage implements IStorage {
     return created;
   }
 
+  async getPlan(id: string): Promise<Plan | undefined> {
+    const result = await db.select().from(plans).where(eq(plans.id, id));
+    return result[0];
+  }
+
   async getUserPlan(userId: string): Promise<Plan | undefined> {
     const result = await db.select().from(plans)
       .where(and(eq(plans.userId, userId), eq(plans.isActive, true)));
@@ -871,6 +895,11 @@ export class DbStorage implements IStorage {
     return await db.select().from(addresses).where(eq(addresses.userId, userId));
   }
 
+  async getAddress(id: string): Promise<Address | undefined> {
+    const result = await db.select().from(addresses).where(eq(addresses.id, id));
+    return result[0];
+  }
+
   async createAddress(address: InsertAddress): Promise<Address> {
     const [created] = await db.insert(addresses).values(address).returning();
     return created;
@@ -897,6 +926,14 @@ export class DbStorage implements IStorage {
 
   async getUserDeliverySyncs(userId: string): Promise<DeliverySync[]> {
     return await db.select().from(deliverySync).where(eq(deliverySync.userId, userId));
+  }
+
+  async updateDeliverySync(id: string, updates: Partial<DeliverySync>): Promise<DeliverySync | undefined> {
+    const [updated] = await db.update(deliverySync)
+      .set(updates)
+      .where(eq(deliverySync.id, id))
+      .returning();
+    return updated;
   }
 }
 

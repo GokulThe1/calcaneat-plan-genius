@@ -2,7 +2,16 @@ import type { Express, RequestHandler } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { setupAuth, isAuthenticated } from "./replitAuth";
-import { insertReportSchema, insertOrderSchema } from "@shared/schema";
+import { 
+  insertReportSchema, 
+  insertOrderSchema,
+  insertPlanSchema,
+  insertStageProgressSchema,
+  insertDocumentSchema,
+  insertDietPlanSchema,
+  insertAddressSchema,
+  insertDeliverySyncSchema
+} from "@shared/schema";
 import { z } from "zod";
 import Razorpay from "razorpay";
 
@@ -54,6 +63,36 @@ const isDelivery: RequestHandler = async (req: any, res, next) => {
   const user = await storage.getUser(userId);
   
   if (!user || user.role !== 'delivery') {
+    return res.status(403).json({ message: "Forbidden" });
+  }
+  
+  next();
+};
+
+const isConsultant: RequestHandler = async (req: any, res, next) => {
+  if (!req.user) {
+    return res.status(401).json({ message: "Unauthorized" });
+  }
+  
+  const userId = req.user.claims.sub;
+  const user = await storage.getUser(userId);
+  
+  if (!user || (user.role !== 'clinical' && user.role !== 'admin')) {
+    return res.status(403).json({ message: "Forbidden" });
+  }
+  
+  next();
+};
+
+const isNutritionist: RequestHandler = async (req: any, res, next) => {
+  if (!req.user) {
+    return res.status(401).json({ message: "Unauthorized" });
+  }
+  
+  const userId = req.user.claims.sub;
+  const user = await storage.getUser(userId);
+  
+  if (!user || (user.role !== 'nutritionist' && user.role !== 'clinical' && user.role !== 'admin')) {
     return res.status(403).json({ message: "Forbidden" });
   }
   
@@ -547,6 +586,292 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       console.error("Error verifying payment:", error);
       res.status(500).json({ message: "Error verifying payment: " + error.message });
+    }
+  });
+
+  // ==================== PLANS ROUTES ====================
+  
+  // Get user's active plan
+  app.get('/api/user/plan', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const plan = await storage.getUserPlan(userId);
+      res.json(plan);
+    } catch (error) {
+      console.error("Error fetching plan:", error);
+      res.status(500).json({ message: "Failed to fetch plan" });
+    }
+  });
+
+  // Create a new plan for user
+  app.post('/api/plans', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const planData = insertPlanSchema.parse({ ...req.body, userId });
+      const plan = await storage.createPlan(planData);
+      res.json(plan);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ message: "Invalid plan data", errors: error.errors });
+      }
+      console.error("Error creating plan:", error);
+      res.status(500).json({ message: "Failed to create plan" });
+    }
+  });
+
+  // Update plan
+  app.patch('/api/plans/:id', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const plan = await storage.getPlan(req.params.id);
+      
+      if (!plan || plan.userId !== userId) {
+        return res.status(403).json({ message: "Forbidden" });
+      }
+      
+      const updated = await storage.updatePlan(req.params.id, req.body);
+      res.json(updated);
+    } catch (error) {
+      console.error("Error updating plan:", error);
+      res.status(500).json({ message: "Failed to update plan" });
+    }
+  });
+
+  // ==================== STAGE PROGRESS ROUTES ====================
+  
+  // Get user's stage progress
+  app.get('/api/user/stages', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const stages = await storage.getUserStageProgress(userId);
+      res.json(stages);
+    } catch (error) {
+      console.error("Error fetching stages:", error);
+      res.status(500).json({ message: "Failed to fetch stages" });
+    }
+  });
+
+  // Update stage status (admin/consultant only)
+  app.patch('/api/stages/:id', isAuthenticated, isConsultant, async (req: any, res) => {
+    try {
+      const statusSchema = z.object({ 
+        status: z.enum(['pending', 'in_progress', 'completed', 'failed']) 
+      });
+      const { status } = statusSchema.parse(req.body);
+      const stage = await storage.updateStageProgress(req.params.id, { status });
+      
+      if (!stage) {
+        return res.status(404).json({ message: "Stage not found" });
+      }
+      
+      res.json(stage);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ message: "Invalid status value", errors: error.errors });
+      }
+      console.error("Error updating stage:", error);
+      res.status(500).json({ message: "Failed to update stage" });
+    }
+  });
+
+  // ==================== DOCUMENTS ROUTES ====================
+  
+  // Get user's documents
+  app.get('/api/user/documents', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const documents = await storage.getUserDocuments(userId);
+      res.json(documents);
+    } catch (error) {
+      console.error("Error fetching documents:", error);
+      res.status(500).json({ message: "Failed to fetch documents" });
+    }
+  });
+
+  // Upload document (consultant/admin only)
+  app.post('/api/documents', isAuthenticated, isConsultant, async (req: any, res) => {
+    try {
+      const documentData = insertDocumentSchema.parse(req.body);
+      const document = await storage.createDocument(documentData);
+      res.json(document);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ message: "Invalid document data", errors: error.errors });
+      }
+      console.error("Error creating document:", error);
+      res.status(500).json({ message: "Failed to create document" });
+    }
+  });
+
+  // Get documents by stage and user (admin view)
+  app.get('/api/admin/documents/:userId/:stage', isAuthenticated, isAdmin, async (req: any, res) => {
+    try {
+      const documents = await storage.getDocumentsByStage(req.params.userId, parseInt(req.params.stage));
+      res.json(documents);
+    } catch (error) {
+      console.error("Error fetching documents:", error);
+      res.status(500).json({ message: "Failed to fetch documents" });
+    }
+  });
+
+  // ==================== DIET PLANS ROUTES ====================
+  
+  // Get user's diet plan
+  app.get('/api/user/diet-plan', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const dietPlan = await storage.getUserDietPlan(userId);
+      res.json(dietPlan);
+    } catch (error) {
+      console.error("Error fetching diet plan:", error);
+      res.status(500).json({ message: "Failed to fetch diet plan" });
+    }
+  });
+
+  // Create diet plan (nutritionist/admin only)
+  app.post('/api/diet-plans', isAuthenticated, isNutritionist, async (req: any, res) => {
+    try {
+      const dietPlanData = insertDietPlanSchema.parse(req.body);
+      const dietPlan = await storage.createDietPlan(dietPlanData);
+      res.json(dietPlan);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ message: "Invalid diet plan data", errors: error.errors });
+      }
+      console.error("Error creating diet plan:", error);
+      res.status(500).json({ message: "Failed to create diet plan" });
+    }
+  });
+
+  // Update diet plan
+  app.patch('/api/diet-plans/:id', isAuthenticated, isNutritionist, async (req: any, res) => {
+    try {
+      const dietPlan = await storage.updateDietPlan(req.params.id, req.body);
+      if (!dietPlan) {
+        return res.status(404).json({ message: "Diet plan not found" });
+      }
+      res.json(dietPlan);
+    } catch (error) {
+      console.error("Error updating diet plan:", error);
+      res.status(500).json({ message: "Failed to update diet plan" });
+    }
+  });
+
+  // ==================== ADDRESSES ROUTES ====================
+  
+  // Get user's addresses
+  app.get('/api/user/addresses', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const addresses = await storage.getUserAddresses(userId);
+      res.json(addresses);
+    } catch (error) {
+      console.error("Error fetching addresses:", error);
+      res.status(500).json({ message: "Failed to fetch addresses" });
+    }
+  });
+
+  // Create address
+  app.post('/api/addresses', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const addressData = insertAddressSchema.parse({ ...req.body, userId });
+      const address = await storage.createAddress(addressData);
+      res.json(address);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ message: "Invalid address data", errors: error.errors });
+      }
+      console.error("Error creating address:", error);
+      res.status(500).json({ message: "Failed to create address" });
+    }
+  });
+
+  // Update address
+  app.patch('/api/addresses/:id', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const address = await storage.getAddress(req.params.id);
+      
+      if (!address || address.userId !== userId) {
+        return res.status(403).json({ message: "Forbidden" });
+      }
+      
+      const updated = await storage.updateAddress(req.params.id, req.body);
+      res.json(updated);
+    } catch (error) {
+      console.error("Error updating address:", error);
+      res.status(500).json({ message: "Failed to update address" });
+    }
+  });
+
+  // Delete address
+  app.delete('/api/addresses/:id', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const address = await storage.getAddress(req.params.id);
+      
+      if (!address || address.userId !== userId) {
+        return res.status(403).json({ message: "Forbidden" });
+      }
+      
+      await storage.deleteAddress(req.params.id);
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Error deleting address:", error);
+      res.status(500).json({ message: "Failed to delete address" });
+    }
+  });
+
+  // ==================== DELIVERY SYNC ROUTES ====================
+  
+  // Create delivery sync (admin only)
+  app.post('/api/delivery-sync', isAuthenticated, isAdmin, async (req: any, res) => {
+    try {
+      const syncData = insertDeliverySyncSchema.parse(req.body);
+      const sync = await storage.createDeliverySync(syncData);
+      res.json(sync);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ message: "Invalid sync data", errors: error.errors });
+      }
+      console.error("Error creating delivery sync:", error);
+      res.status(500).json({ message: "Failed to create delivery sync" });
+    }
+  });
+
+  // Get user's delivery sync status
+  app.get('/api/user/delivery-sync', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const syncs = await storage.getUserDeliverySyncs(userId);
+      res.json(syncs);
+    } catch (error) {
+      console.error("Error fetching delivery syncs:", error);
+      res.status(500).json({ message: "Failed to fetch delivery syncs" });
+    }
+  });
+
+  // Update delivery sync status (admin only)
+  app.patch('/api/delivery-sync/:id', isAuthenticated, isAdmin, async (req: any, res) => {
+    try {
+      const statusSchema = z.object({ 
+        status: z.enum(['queued', 'processing', 'completed', 'failed']) 
+      });
+      const { status } = statusSchema.parse(req.body);
+      const sync = await storage.updateDeliverySync(req.params.id, { status });
+      
+      if (!sync) {
+        return res.status(404).json({ message: "Delivery sync not found" });
+      }
+      
+      res.json(sync);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ message: "Invalid status value", errors: error.errors });
+      }
+      console.error("Error updating delivery sync:", error);
+      res.status(500).json({ message: "Failed to update delivery sync" });
     }
   });
 
