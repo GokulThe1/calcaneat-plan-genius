@@ -50,6 +50,54 @@ export type Database = {
         }
         Relationships: []
       }
+      addresses: {
+        Row: {
+          breakfast: boolean | null
+          city: string | null
+          created_at: string | null
+          dinner: boolean | null
+          id: string
+          is_default: boolean | null
+          label: string | null
+          line1: string | null
+          line2: string | null
+          lunch: boolean | null
+          pincode: string | null
+          state: string | null
+          user_id: string
+        }
+        Insert: {
+          breakfast?: boolean | null
+          city?: string | null
+          created_at?: string | null
+          dinner?: boolean | null
+          id?: string
+          is_default?: boolean | null
+          label?: string | null
+          line1?: string | null
+          line2?: string | null
+          lunch?: boolean | null
+          pincode?: string | null
+          state?: string | null
+          user_id: string
+        }
+        Update: {
+          breakfast?: boolean | null
+          city?: string | null
+          created_at?: string | null
+          dinner?: boolean | null
+          id?: string
+          is_default?: boolean | null
+          label?: string | null
+          line1?: string | null
+          line2?: string | null
+          lunch?: boolean | null
+          pincode?: string | null
+          state?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
       ai_responses: {
         Row: {
           age: number | null
@@ -430,6 +478,230 @@ export type Database = {
         }
         Relationships: []
       }
+      meal_plans: {
+        Row: {
+          created_at: string | null
+          id: string
+          meals: Json
+          total_calories: number | null
+          user_id: string
+          week_number: number
+          year: number
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          meals: Json
+          total_calories?: number | null
+          user_id: string
+          week_number: number
+          year: number
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          meals?: Json
+          total_calories?: number | null
+          user_id?: string
+          week_number?: number
+          year?: number
+        }
+        Relationships: []
+      }
+      meals: {
+        Row: {
+          allergens: string[] | null
+          calories: number
+          carbs: number
+          created_at: string | null
+          description: string | null
+          dietary_tags: string[] | null
+          fats: number
+          id: string
+          image_url: string | null
+          ingredients: string[] | null
+          is_active: boolean | null
+          meal_type: string
+          name: string
+          protein: number
+        }
+        Insert: {
+          allergens?: string[] | null
+          calories: number
+          carbs: number
+          created_at?: string | null
+          description?: string | null
+          dietary_tags?: string[] | null
+          fats: number
+          id?: string
+          image_url?: string | null
+          ingredients?: string[] | null
+          is_active?: boolean | null
+          meal_type: string
+          name: string
+          protein: number
+        }
+        Update: {
+          allergens?: string[] | null
+          calories?: number
+          carbs?: number
+          created_at?: string | null
+          description?: string | null
+          dietary_tags?: string[] | null
+          fats?: number
+          id?: string
+          image_url?: string | null
+          ingredients?: string[] | null
+          is_active?: boolean | null
+          meal_type?: string
+          name?: string
+          protein?: number
+        }
+        Relationships: []
+      }
+      milestones: {
+        Row: {
+          completed_at: string | null
+          created_at: string | null
+          id: string
+          name: string
+          order: number
+          status: string
+          user_id: string
+        }
+        Insert: {
+          completed_at?: string | null
+          created_at?: string | null
+          id?: string
+          name: string
+          order: number
+          status?: string
+          user_id: string
+        }
+        Update: {
+          completed_at?: string | null
+          created_at?: string | null
+          id?: string
+          name?: string
+          order?: number
+          status?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      notifications: {
+        Row: {
+          created_at: string | null
+          id: string
+          is_read: boolean | null
+          message: string
+          title: string
+          type: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          is_read?: boolean | null
+          message: string
+          title: string
+          type?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          is_read?: boolean | null
+          message?: string
+          title?: string
+          type?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      orders: {
+        Row: {
+          assigned_delivery_person_id: string | null
+          created_at: string | null
+          delivered_at: string | null
+          delivery_address: string
+          delivery_date: string
+          id: string
+          meal_plan_id: string | null
+          status: string
+          user_id: string
+        }
+        Insert: {
+          assigned_delivery_person_id?: string | null
+          created_at?: string | null
+          delivered_at?: string | null
+          delivery_address: string
+          delivery_date: string
+          id?: string
+          meal_plan_id?: string | null
+          status?: string
+          user_id: string
+        }
+        Update: {
+          assigned_delivery_person_id?: string | null
+          created_at?: string | null
+          delivered_at?: string | null
+          delivery_address?: string
+          delivery_date?: string
+          id?: string
+          meal_plan_id?: string | null
+          status?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "orders_meal_plan_id_fkey"
+            columns: ["meal_plan_id"]
+            isOneToOne: false
+            referencedRelation: "meal_plans"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      payment_sessions: {
+        Row: {
+          amount: number
+          completed_at: string | null
+          consultation_date: string
+          created_at: string | null
+          id: string
+          payment_method: string | null
+          plan_type: string
+          razorpay_order_id: string | null
+          status: string
+          user_id: string
+        }
+        Insert: {
+          amount: number
+          completed_at?: string | null
+          consultation_date: string
+          created_at?: string | null
+          id?: string
+          payment_method?: string | null
+          plan_type: string
+          razorpay_order_id?: string | null
+          status?: string
+          user_id: string
+        }
+        Update: {
+          amount?: number
+          completed_at?: string | null
+          consultation_date?: string
+          created_at?: string | null
+          id?: string
+          payment_method?: string | null
+          plan_type?: string
+          razorpay_order_id?: string | null
+          status?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       plans: {
         Row: {
           consultation_fee_credited: number | null
@@ -503,6 +775,42 @@ export type Database = {
           id?: string
           phone?: string | null
           plan_type?: Database["public"]["Enums"]["plan_type"] | null
+          updated_at?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
+      reports: {
+        Row: {
+          created_at: string | null
+          data: Json | null
+          file_url: string | null
+          id: string
+          report_type: string
+          summary: string | null
+          title: string
+          updated_at: string | null
+          user_id: string
+        }
+        Insert: {
+          created_at?: string | null
+          data?: Json | null
+          file_url?: string | null
+          id?: string
+          report_type: string
+          summary?: string | null
+          title: string
+          updated_at?: string | null
+          user_id: string
+        }
+        Update: {
+          created_at?: string | null
+          data?: Json | null
+          file_url?: string | null
+          id?: string
+          report_type?: string
+          summary?: string | null
+          title?: string
           updated_at?: string | null
           user_id?: string
         }
