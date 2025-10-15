@@ -4,6 +4,7 @@ import { QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { ThemeProvider } from "@/components/ThemeProvider";
+import { AuthenticatedLayout } from "@/components/AuthenticatedLayout";
 import { useAuth } from "@/hooks/useAuth";
 import Home from "@/pages/Home";
 import Plans from "@/pages/Plans";
@@ -28,6 +29,12 @@ import NotFound from "@/pages/not-found";
 function Router() {
   const { isAuthenticated, isLoading } = useAuth();
 
+  const withLayout = (Component: React.ComponentType) => () => (
+    <AuthenticatedLayout>
+      <Component />
+    </AuthenticatedLayout>
+  );
+
   return (
     <Switch>
       {isLoading || !isAuthenticated ? (
@@ -44,7 +51,7 @@ function Router() {
         </>
       ) : (
         <>
-          <Route path="/" component={Profile} />
+          <Route path="/" component={withLayout(Profile)} />
           <Route path="/plans" component={Plans} />
           <Route path="/ai-plan" component={AIPlan} />
           <Route path="/clinical-plan" component={ClinicalPlan} />
@@ -52,16 +59,16 @@ function Router() {
           <Route path="/signup-character" component={SignupCharacter} />
           <Route path="/payment" component={DummyPayment} />
           <Route path="/payment-success" component={PaymentSuccess} />
-          <Route path="/profile" component={Profile} />
-          <Route path="/dashboard" component={Dashboard} />
-          <Route path="/admin" component={Admin} />
-          <Route path="/kitchen" component={Kitchen} />
-          <Route path="/delivery" component={Delivery} />
-          <Route path="/consultant" component={ConsultantPanel} />
-          <Route path="/lab" component={LabTechnicianPanel} />
-          <Route path="/nutritionist" component={NutritionistPanel} />
-          <Route path="/chef" component={ChefPanel} />
-          <Route path="/delivery-panel" component={DeliveryPanel} />
+          <Route path="/profile" component={withLayout(Profile)} />
+          <Route path="/dashboard" component={withLayout(Dashboard)} />
+          <Route path="/admin" component={withLayout(Admin)} />
+          <Route path="/kitchen" component={withLayout(Kitchen)} />
+          <Route path="/delivery" component={withLayout(Delivery)} />
+          <Route path="/consultant" component={withLayout(ConsultantPanel)} />
+          <Route path="/lab" component={withLayout(LabTechnicianPanel)} />
+          <Route path="/nutritionist" component={withLayout(NutritionistPanel)} />
+          <Route path="/chef" component={withLayout(ChefPanel)} />
+          <Route path="/delivery-panel" component={withLayout(DeliveryPanel)} />
           <Route component={NotFound} />
         </>
       )}
