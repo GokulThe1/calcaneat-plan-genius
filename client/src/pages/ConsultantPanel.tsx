@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -52,6 +52,7 @@ export default function ConsultantPanel() {
   const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null);
   const [uploadStage, setUploadStage] = useState<1 | 3>(1);
   const [uploadLabel, setUploadLabel] = useState("");
+  const reminderShown = useRef(false);
 
   // Fetch all customers
   const { data: customers = [], isLoading: loadingCustomers } = useQuery<Customer[]>({
@@ -74,6 +75,20 @@ export default function ConsultantPanel() {
   const { data: acknowledgements = [] } = useQuery<Acknowledgement[]>({
     queryKey: ['/api/acknowledgements/staff']
   });
+
+  // Show reminder for pending acknowledgements
+  useEffect(() => {
+    if (!reminderShown.current && acknowledgements.length > 0) {
+      const pendingCount = acknowledgements.filter(ack => ack.status === 'pending').length;
+      if (pendingCount > 0) {
+        toast({
+          title: "Pending Tasks",
+          description: `You have ${pendingCount} pending acknowledgement${pendingCount > 1 ? 's' : ''} to review`,
+        });
+        reminderShown.current = true;
+      }
+    }
+  }, [acknowledgements, toast]);
 
   // Upload report mutation
   const uploadMutation = useMutation({
