@@ -60,7 +60,7 @@ Preferred communication style: Simple, everyday language.
 - Schema-first design with Zod validation for runtime type checking
 
 **Core Data Models**
-- **Users**: Authentication and profile data with role assignment, character selection (preset or upload), phone number
+- **Users**: Authentication and profile data with role assignment (customer, admin, consultant, lab_technician, nutritionist, chef, delivery), character selection, phone number
 - **Customer Profiles**: Comprehensive health and preference data from quiz responses
 - **Consultations**: Doctor appointments with scheduled date/time, doctor name, meeting type, and status tracking
 - **Milestones**: 5-stage progress tracking (Physician Consultation → Test Collection → Discussion → Diet Chart → Meal Delivery)
@@ -69,6 +69,9 @@ Preferred communication style: Simple, everyday language.
 - **Orders**: Meal order management with status workflow
 - **Subscriptions**: Customer plan enrollment and billing
 - **Sessions**: Secure session storage for authentication
+- **Acknowledgements**: Task assignment and staff confirmation tracking with UUID IDs, status (pending/acknowledged/completed), timestamps
+- **Staff Activity Log**: Comprehensive audit trail of all staff actions with metadata (document uploads, task acknowledgements, deliveries)
+- **Delivery Location**: Real-time GPS tracking for delivery personnel with latitude/longitude coordinates and status
 
 **Data Access Pattern**
 - Storage abstraction layer (IStorage interface) allows for flexible implementations
@@ -78,14 +81,54 @@ Preferred communication style: Simple, everyday language.
 - All user signups, consultations, milestones, and payments are persisted to PostgreSQL
 
 **Backend API Routes**
+
+*Authentication & User*
 - POST /api/signup-with-consultation: Creates user account with consultation booking and initial milestones
 - POST /api/payment/complete-dummy: Marks dummy payment as completed
 - GET /api/auth/user: Retrieves authenticated user details
-- GET /api/admin/customers: Lists all customer accounts (admin only)
-- PATCH /api/admin/milestones/:id: Updates milestone status (admin only)
-- POST /api/objects/upload: Gets presigned URL for file upload (authenticated users)
-- GET /objects/:objectPath: Downloads private files with ACL verification (authenticated users)
-- POST /api/admin/documents: Creates document record after upload (admin/clinical only)
+
+*Consultant Routes*
+- GET /api/consultant/customers: Lists all customers for consultant
+- POST /api/consultant/upload-report: Uploads medical reports for stages 1 & 3
+
+*Lab Technician Routes*
+- GET /api/lab/customers: Lists all customers for lab technician
+- POST /api/lab/upload-report: Uploads test reports for stage 2
+
+*Nutritionist Routes*
+- GET /api/nutritionist/customers: Lists customers with completed stage 3
+- POST /api/nutritionist/upload-diet-chart: Uploads diet charts for stage 4
+
+*Chef Routes*
+- GET /api/chef/active-plans: Lists active diet plans for meal preparation
+- POST /api/chef/mark-prepared: Marks meals as prepared with activity logging
+
+*Delivery Routes*
+- GET /api/delivery/assigned: Lists assigned deliveries
+- PATCH /api/delivery/status/:orderId: Updates delivery status
+- POST /api/delivery/location: Updates GPS location for delivery tracking
+
+*Acknowledgement Routes*
+- POST /api/acknowledgements: Creates new acknowledgement with activity logging
+- PATCH /api/acknowledgements/:id: Updates acknowledgement status (validated with Zod, returns 404 if not found)
+- GET /api/acknowledgements/staff: Gets staff's acknowledgements
+- GET /api/admin/acknowledgements: Gets all acknowledgements (admin only)
+
+*Activity Log Routes*
+- GET /api/activity/staff: Gets staff's activity logs
+- GET /api/activity/customer/:userId: Gets customer's activity logs
+- GET /api/admin/activity: Gets all activity logs (admin only)
+
+*Admin Routes*
+- GET /api/admin/customers: Lists all customer accounts
+- GET /api/admin/delivery-locations: Gets all delivery personnel locations
+- GET /api/admin/staff/:role: Gets staff members by role
+- PATCH /api/admin/milestones/:id: Updates milestone status
+- POST /api/admin/documents: Creates document record after upload
+
+*Object Storage*
+- POST /api/objects/upload: Gets presigned URL for file upload
+- GET /objects/:objectPath: Downloads private files with ACL verification
 
 ### External Dependencies
 
@@ -115,3 +158,54 @@ Preferred communication style: Simple, everyday language.
 - **date-fns**: Date manipulation and formatting
 - **clsx & tailwind-merge**: Conditional className utilities
 - **memoizee**: Function memoization for performance optimization
+
+## Recent Implementation (October 2025)
+
+### Clinical Staff Workflow System
+
+**Completed Tasks (6/19)**
+1. ✅ Extended database schema with acknowledgements, staff_activity_log, delivery_location tables
+2. ✅ Updated storage interface with 13 new methods for acknowledgements, activity logs, delivery tracking
+3. ✅ Implemented backend API routes for all clinical staff workflows with Zod validation
+4. ✅ Built acknowledgement system with create/update endpoints and activity logging
+5. ✅ Implemented comprehensive activity logging across all clinical actions
+6. ✅ Built Consultant Panel with customer list, stage 1 & 3 uploads, patient overview, acknowledgements
+
+**Clinical Staff Roles**
+- **Consultant**: Handles physician consultations (Stage 1) and discussion reports (Stage 3)
+- **Lab Technician**: Manages test collection and uploads test reports (Stage 2)
+- **Nutritionist**: Creates diet charts and meal plans (Stage 4)
+- **Chef**: Views active plans, marks meals as prepared
+- **Delivery**: Manages deliveries with GPS tracking and status updates
+
+**Consultant Panel Features** (at /consultant)
+- Customer list view with selection
+- Patient information display
+- 6-stage progress visualization with color-coded status
+- Upload reports for Stage 1 (Initial Consultation) and Stage 3 (Discussion)
+- Document history with download links
+- Pending acknowledgements with update functionality
+- ObjectUploader integration with presigned URLs
+- Customer-specific query invalidations
+- Activity logging on all actions
+
+**Acknowledgement System**
+- UUID-based acknowledgement tracking
+- Status flow: pending → acknowledged → completed
+- PATCH endpoint with Zod validation (z.enum status validation)
+- Returns 404 when acknowledgement not found
+- Automatic activity logging on status updates
+- Conditional acknowledgedAt timestamp (only for acknowledged/completed)
+
+**Activity Logging**
+- All clinical staff actions logged with metadata
+- Tracks: document uploads, task acknowledgements, meal preparation, deliveries
+- Queryable by staff, customer, or admin
+- Includes actionType, stage, description, metadata fields
+
+**Pending Tasks (13/19)**
+- Lab Technician Panel, Nutritionist Panel, Chef Panel, Delivery Panel
+- Enhanced Admin Panel with staff monitoring
+- GPS tracking system, PDF generation, delivery sync logic
+- Notification system, role-based navigation
+- End-to-end testing
