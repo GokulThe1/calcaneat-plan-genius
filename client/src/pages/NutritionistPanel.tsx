@@ -77,6 +77,33 @@ export default function NutritionistPanel() {
     queryKey: ['/api/acknowledgements/staff']
   });
 
+  // Generate PDF mutation
+  const generatePdfMutation = useMutation({
+    mutationFn: async (data: { userId: string; macros?: string; weeklyPlan?: string }) => {
+      return apiRequest('POST', `/api/nutritionist/diet-plan/${data.userId}/pdf`, {
+        macros: data.macros,
+        weeklyPlan: data.weeklyPlan
+      });
+    },
+    onSuccess: (_, variables) => {
+      queryClient.invalidateQueries({ queryKey: ['/api/user/documents', variables.userId] });
+      toast({
+        title: "PDF Generated",
+        description: "Diet chart PDF has been generated successfully"
+      });
+      setMacros("");
+      setWeeklyPlan("");
+      setUploadLabel("");
+    },
+    onError: () => {
+      toast({
+        title: "Generation Failed",
+        description: "Failed to generate PDF. Please try again.",
+        variant: "destructive"
+      });
+    }
+  });
+
   // Upload diet chart mutation
   const uploadMutation = useMutation({
     mutationFn: async (data: { userId: string; label: string; url: string; macros?: string; weeklyPlan?: string }) => {
@@ -403,6 +430,31 @@ export default function NutritionistPanel() {
                       <div className="flex items-center gap-2 text-sm text-muted-foreground">
                         <FileText className="h-4 w-4" />
                         <p>Supported formats: PDF (max 10MB)</p>
+                      </div>
+
+                      <div className="pt-4 border-t">
+                        <p className="text-sm text-muted-foreground mb-3">
+                          Or generate a PDF automatically from macros and weekly plan data:
+                        </p>
+                        <Button
+                          onClick={() => selectedCustomer && generatePdfMutation.mutate({
+                            userId: selectedCustomer.id,
+                            macros,
+                            weeklyPlan
+                          })}
+                          disabled={generatePdfMutation.isPending || !macros || !weeklyPlan}
+                          variant="secondary"
+                          className="w-full"
+                          data-testid="button-generate-pdf"
+                        >
+                          <FileText className="h-4 w-4 mr-2" />
+                          {generatePdfMutation.isPending ? 'Generating PDF...' : 'Generate PDF from Data'}
+                        </Button>
+                        {(!macros || !weeklyPlan) && (
+                          <p className="text-xs text-muted-foreground mt-2">
+                            Fill in macros and weekly plan to enable PDF generation
+                          </p>
+                        )}
                       </div>
                     </CardContent>
                   </Card>

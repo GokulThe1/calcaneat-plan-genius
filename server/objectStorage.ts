@@ -218,6 +218,29 @@ export class ObjectStorageService {
       requestedPermission: requestedPermission ?? ObjectPermission.READ,
     });
   }
+
+  async uploadBufferToPrivateDir(
+    buffer: Buffer,
+    filename: string,
+    contentType: string = 'application/pdf'
+  ): Promise<string> {
+    const privateObjectDir = this.getPrivateObjectDir();
+    const uniqueId = randomUUID();
+    const objectPath = `${privateObjectDir}/${uniqueId}-${filename}`;
+    
+    const { bucketName, objectName } = parseObjectPath(objectPath);
+    const bucket = objectStorageClient.bucket(bucketName);
+    const file = bucket.file(objectName);
+    
+    await file.save(buffer, {
+      contentType,
+      metadata: {
+        contentType
+      }
+    });
+    
+    return `/objects/${uniqueId}-${filename}`;
+  }
 }
 
 function parseObjectPath(path: string): {

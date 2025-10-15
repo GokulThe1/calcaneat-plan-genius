@@ -1280,6 +1280,210 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Generate diet chart PDF (nutritionist or admin)
+  app.post('/api/nutritionist/diet-plan/:userId/pdf', isAuthenticated, async (req: any, res) => {
+    try {
+      const { userId } = req.params;
+      const staffId = req.user.claims.sub;
+      const staffRole = req.user.role;
+
+      // Check authorization (nutritionist or admin)
+      if (staffRole !== 'nutritionist' && staffRole !== 'admin') {
+        return res.status(403).json({ message: "Unauthorized" });
+      }
+
+      // Get user data
+      const customer = await storage.getUserById(userId);
+      if (!customer) {
+        return res.status(404).json({ message: "Customer not found" });
+      }
+
+      // Get macros and weeklyPlan from request body or existing diet plan
+      let macros = req.body.macros;
+      let weeklyPlan = req.body.weeklyPlan;
+
+      // Always fetch or create diet plan
+      let dietPlan = await storage.getUserDietPlan(userId);
+      
+      if (!macros && !weeklyPlan) {
+        if (!dietPlan || (!dietPlan.macros && !dietPlan.weeklyPlan)) {
+          return res.status(400).json({ message: "Diet plan data not available" });
+        }
+        macros = dietPlan.macros;
+        weeklyPlan = dietPlan.weeklyPlan;
+      } else {
+        // If macros/weeklyPlan provided in request, create/update diet plan with new data
+        if (dietPlan) {
+          await storage.updateDietPlan(dietPlan.id, {
+            macros,
+            weeklyPlan
+          });
+        } else {
+          const dietPlanData = insertDietPlanSchema.parse({
+            userId,
+            macros,
+            weeklyPlan
+          });
+          dietPlan = await storage.createDietPlan(dietPlanData);
+        }
+      }
+
+      // Generate PDF
+      const { generateDietChartPDF } = await import('./pdfGenerator');
+      const pdfBuffer = await generateDietChartPDF({
+        customerName: customer.name || 'Patient',
+        customerId: userId,
+        macros,
+        weeklyPlan,
+        nutritionistName: req.user.claims.name,
+        generatedDate: new Date()
+      });
+
+      // Upload to object storage
+      const objectStorageService = new ObjectStorageService();
+      const objectPath = await objectStorageService.uploadBufferToPrivateDir(
+        pdfBuffer,
+        `diet-chart-${userId}.pdf`,
+        'application/pdf'
+      );
+
+      // Set ACL with patient as owner
+      const normalizedPath = await objectStorageService.trySetObjectEntityAclPolicy(objectPath, {
+        owner: userId,
+        visibility: "private"
+      });
+
+      // Update diet plan with PDF URL (dietPlan is now always defined)
+      await storage.updateDietPlan(dietPlan.id, {
+        pdfUrl: normalizedPath
+      });
+
+      // Create document record
+      const documentData = insertDocumentSchema.parse({
+        userId,
+        stage: 4,
+        label: 'Generated Diet Chart',
+        url: normalizedPath,
+        uploadedByRole: staffRole
+      });
+      const document = await storage.createDocument(documentData);
+
+      // Log activity
+      const activityData = insertStaffActivityLogSchema.parse({
+        staffId,
+        customerId: userId,
+        actionType: 'document_uploaded',
+        stage: 4,
+        description: `Generated diet chart PDF`,
+        metadata: { documentId: document.id, generated: true }
+      });
+      await storage.createStaffActivity(activityData);
+
+      res.json({ success: true, pdfUrl: normalizedPath, document });
+    } catch (error) {
+      console.error("Error generating diet chart PDF:", error);
+      res.status(500).json({ message: "Failed to generate PDF" });
+    }
+  });
+
+  // Generate consolidated report (admin or clinical staff)
+  app.post('/api/reports/:userId/consolidated', isAuthenticated, async (req: any, res) => {
+    try {
+      const { userId } = req.params;
+      const staffId = req.user.claims.sub;
+      const staffRole = req.user.role;
+
+      // Check authorization (admin or clinical roles)
+      const authorizedRoles = ['admin', 'consultant', 'nutritionist'];
+      if (!authorizedRoles.includes(staffRole)) {
+        return res.status(403).json({ message: "Unauthorized" });
+      }
+
+      // Get customer data
+      const customer = await storage.getUserById(userId);
+      if (!customer) {
+        return res.status(404).json({ message: "Customer not found" });
+      }
+
+      // Get stage progress and documents
+      const stageProgresses = await storage.getUserStageProgress(userId);
+      const documents = await storage.getUserDocuments(userId);
+      const dietPlan = await storage.getUserDietPlan(userId);
+      const acknowledgements = await storage.getAcknowledgementsByCustomer(userId);
+
+      // Build stages data
+      const stages = stageProgresses.map(stage => ({
+        stage: stage.stage,
+        status: stage.status,
+        completedAt: stage.completedAt || undefined,
+        documents: documents
+          .filter(doc => doc.stage === stage.stage)
+          .map(doc => ({
+            label: doc.label,
+            url: doc.url,
+            uploadedAt: doc.uploadedAt || new Date()
+          }))
+      }));
+
+      // Generate consolidated report PDF
+      const { generateConsolidatedReportPDF } = await import('./pdfGenerator');
+      const pdfBuffer = await generateConsolidatedReportPDF({
+        customerName: customer.name || 'Patient',
+        customerId: userId,
+        stages,
+        dietPlan: dietPlan ? {
+          macros: dietPlan.macros,
+          weeklyPlan: dietPlan.weeklyPlan
+        } : undefined,
+        acknowledgements: acknowledgements.map(ack => ({
+          taskType: ack.taskType,
+          status: ack.status,
+          createdAt: ack.createdAt || new Date()
+        }))
+      });
+
+      // Upload to object storage
+      const objectStorageService = new ObjectStorageService();
+      const objectPath = await objectStorageService.uploadBufferToPrivateDir(
+        pdfBuffer,
+        `consolidated-report-${userId}.pdf`,
+        'application/pdf'
+      );
+
+      // Set ACL with patient as owner
+      const normalizedPath = await objectStorageService.trySetObjectEntityAclPolicy(objectPath, {
+        owner: userId,
+        visibility: "private"
+      });
+
+      // Create document record as consolidated report
+      const documentData = insertDocumentSchema.parse({
+        userId,
+        stage: 6, // Use stage 6 for consolidated reports
+        label: 'Consolidated Clinical Report',
+        url: normalizedPath,
+        uploadedByRole: staffRole
+      });
+      const document = await storage.createDocument(documentData);
+
+      // Log activity
+      const activityData = insertStaffActivityLogSchema.parse({
+        staffId,
+        customerId: userId,
+        actionType: 'document_uploaded',
+        stage: 6,
+        description: `Generated consolidated clinical report`,
+        metadata: { documentId: document.id, consolidated: true }
+      });
+      await storage.createStaffActivity(activityData);
+
+      res.json({ success: true, pdfUrl: normalizedPath, document });
+    } catch (error) {
+      console.error("Error generating consolidated report:", error);
+      res.status(500).json({ message: "Failed to generate consolidated report" });
+    }
+  });
+
   // ========================================
   // CHEF ROUTES
   // ========================================

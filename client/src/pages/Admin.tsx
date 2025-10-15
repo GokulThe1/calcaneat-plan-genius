@@ -559,6 +559,42 @@ export default function Admin() {
 
                 <Card>
                   <CardHeader>
+                    <CardTitle>Generate Reports</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <p className="text-sm text-muted-foreground mb-3">
+                      Generate a consolidated clinical report combining all stages, documents, and health data
+                    </p>
+                    <Button
+                      onClick={async () => {
+                        if (!selectedCustomer) return;
+                        try {
+                          await apiRequest('POST', `/api/reports/${selectedCustomer.id}/consolidated`, {});
+                          queryClient.invalidateQueries({ queryKey: ['/api/user/documents', selectedCustomer.id] });
+                          toast({
+                            title: "Report Generated",
+                            description: "Consolidated clinical report has been generated successfully"
+                          });
+                        } catch (error) {
+                          toast({
+                            title: "Generation Failed",
+                            description: "Failed to generate consolidated report",
+                            variant: "destructive"
+                          });
+                        }
+                      }}
+                      variant="secondary"
+                      className="w-full"
+                      data-testid="button-generate-consolidated-report"
+                    >
+                      <FileText className="h-4 w-4 mr-2" />
+                      Generate Consolidated Clinical Report
+                    </Button>
+                  </CardContent>
+                </Card>
+
+                <Card>
+                  <CardHeader>
                     <CardTitle>Uploaded Documents</CardTitle>
                   </CardHeader>
                   <CardContent className="space-y-3">
