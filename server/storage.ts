@@ -1,4 +1,4 @@
-import { type User, type UpsertUser, type InsertUser, type CustomerProfile, type InsertCustomerProfile, type Subscription, type InsertSubscription, type Milestone, type InsertMilestone, type Report, type InsertReport, type Consultation, type InsertConsultation, type Order, type InsertOrder, type PaymentSession, type InsertPaymentSession, type Plan, type InsertPlan, type StageProgress, type InsertStageProgress, type Document, type InsertDocument, type DietPlan, type InsertDietPlan, type Address, type InsertAddress, type DeliverySync, type InsertDeliverySync, users, customerProfiles, milestones, reports, consultations, orders, paymentSessions, subscriptions, mealPlans, notifications, plans, stageProgress, documents, dietPlans, addresses, deliverySync } from "@shared/schema";
+import { type User, type UpsertUser, type InsertUser, type CustomerProfile, type InsertCustomerProfile, type Subscription, type InsertSubscription, type Milestone, type InsertMilestone, type Report, type InsertReport, type Consultation, type InsertConsultation, type Order, type InsertOrder, type PaymentSession, type InsertPaymentSession, type Plan, type InsertPlan, type StageProgress, type InsertStageProgress, type Document, type InsertDocument, type DietPlan, type InsertDietPlan, type Address, type InsertAddress, type DeliverySync, type InsertDeliverySync, type Acknowledgement, type InsertAcknowledgement, type StaffActivityLog, type InsertStaffActivityLog, type DeliveryLocation, type InsertDeliveryLocation, users, customerProfiles, milestones, reports, consultations, orders, paymentSessions, subscriptions, mealPlans, notifications, plans, stageProgress, documents, dietPlans, addresses, deliverySync, acknowledgements, staffActivityLog, deliveryLocation } from "@shared/schema";
 import { randomUUID } from "crypto";
 import { db } from "./db";
 import { eq, and } from "drizzle-orm";
@@ -60,6 +60,29 @@ export interface IStorage {
   createDeliverySync(sync: InsertDeliverySync): Promise<DeliverySync>;
   getUserDeliverySyncs(userId: string): Promise<DeliverySync[]>;
   updateDeliverySync(id: string, updates: Partial<DeliverySync>): Promise<DeliverySync | undefined>;
+  
+  // Acknowledgement methods
+  createAcknowledgement(ack: InsertAcknowledgement): Promise<Acknowledgement>;
+  getStaffAcknowledgements(staffId: string): Promise<Acknowledgement[]>;
+  getCustomerAcknowledgements(customerId: string): Promise<Acknowledgement[]>;
+  updateAcknowledgement(id: string, updates: Partial<Acknowledgement>): Promise<Acknowledgement | undefined>;
+  getAllAcknowledgements(): Promise<Acknowledgement[]>;
+  
+  // Staff Activity Log methods
+  createStaffActivity(activity: InsertStaffActivityLog): Promise<StaffActivityLog>;
+  getStaffActivities(staffId: string): Promise<StaffActivityLog[]>;
+  getCustomerActivities(customerId: string): Promise<StaffActivityLog[]>;
+  getAllStaffActivities(): Promise<StaffActivityLog[]>;
+  
+  // Delivery Location methods
+  upsertDeliveryLocation(location: InsertDeliveryLocation): Promise<DeliveryLocation>;
+  getDeliveryLocation(deliveryPersonId: string): Promise<DeliveryLocation | undefined>;
+  getAllDeliveryLocations(): Promise<DeliveryLocation[]>;
+  updateDeliveryLocation(deliveryPersonId: string, updates: Partial<DeliveryLocation>): Promise<DeliveryLocation | undefined>;
+  
+  // Staff assignment methods
+  getStaffByRole(role: string): Promise<User[]>;
+  getClinicalCustomers(): Promise<User[]>;
 }
 
 export class MemStorage implements IStorage {
@@ -76,6 +99,9 @@ export class MemStorage implements IStorage {
   private dietPlans: Map<string, DietPlan>;
   private addresses: Map<string, Address>;
   private deliverySyncs: Map<string, DeliverySync>;
+  private acknowledgements: Map<string, Acknowledgement>;
+  private staffActivities: Map<string, StaffActivityLog>;
+  private deliveryLocations: Map<string, DeliveryLocation>;
 
   constructor() {
     this.users = new Map();
@@ -91,6 +117,9 @@ export class MemStorage implements IStorage {
     this.dietPlans = new Map();
     this.addresses = new Map();
     this.deliverySyncs = new Map();
+    this.acknowledgements = new Map();
+    this.staffActivities = new Map();
+    this.deliveryLocations = new Map();
   }
 
   async getUser(id: string): Promise<User | undefined> {
@@ -541,6 +570,125 @@ export class MemStorage implements IStorage {
     this.deliverySyncs.set(id, updated);
     return updated;
   }
+
+  // Acknowledgement methods
+  async createAcknowledgement(insertAck: InsertAcknowledgement): Promise<Acknowledgement> {
+    const id = randomUUID();
+    const ack: Acknowledgement = {
+      ...insertAck,
+      id,
+      status: insertAck.status || 'pending',
+      stage: insertAck.stage || null,
+      acknowledgedAt: insertAck.acknowledgedAt || null,
+      completedAt: insertAck.completedAt || null,
+      createdAt: new Date(),
+    };
+    this.acknowledgements.set(id, ack);
+    return ack;
+  }
+
+  async getStaffAcknowledgements(staffId: string): Promise<Acknowledgement[]> {
+    return Array.from(this.acknowledgements.values()).filter(a => a.staffId === staffId);
+  }
+
+  async getCustomerAcknowledgements(customerId: string): Promise<Acknowledgement[]> {
+    return Array.from(this.acknowledgements.values()).filter(a => a.customerId === customerId);
+  }
+
+  async updateAcknowledgement(id: string, updates: Partial<Acknowledgement>): Promise<Acknowledgement | undefined> {
+    const ack = this.acknowledgements.get(id);
+    if (!ack) return undefined;
+    const updated: Acknowledgement = { ...ack, ...updates };
+    this.acknowledgements.set(id, updated);
+    return updated;
+  }
+
+  async getAllAcknowledgements(): Promise<Acknowledgement[]> {
+    return Array.from(this.acknowledgements.values());
+  }
+
+  // Staff Activity Log methods
+  async createStaffActivity(insertActivity: InsertStaffActivityLog): Promise<StaffActivityLog> {
+    const id = randomUUID();
+    const activity: StaffActivityLog = {
+      ...insertActivity,
+      id,
+      customerId: insertActivity.customerId || null,
+      stage: insertActivity.stage || null,
+      description: insertActivity.description || null,
+      metadata: insertActivity.metadata || null,
+      createdAt: new Date(),
+    };
+    this.staffActivities.set(id, activity);
+    return activity;
+  }
+
+  async getStaffActivities(staffId: string): Promise<StaffActivityLog[]> {
+    return Array.from(this.staffActivities.values()).filter(a => a.staffId === staffId);
+  }
+
+  async getCustomerActivities(customerId: string): Promise<StaffActivityLog[]> {
+    return Array.from(this.staffActivities.values()).filter(a => a.customerId === customerId);
+  }
+
+  async getAllStaffActivities(): Promise<StaffActivityLog[]> {
+    return Array.from(this.staffActivities.values());
+  }
+
+  // Delivery Location methods
+  async upsertDeliveryLocation(insertLocation: InsertDeliveryLocation): Promise<DeliveryLocation> {
+    const existing = Array.from(this.deliveryLocations.values()).find(
+      l => l.deliveryPersonId === insertLocation.deliveryPersonId
+    );
+    
+    if (existing) {
+      const updated: DeliveryLocation = {
+        ...existing,
+        ...insertLocation,
+        lastUpdated: new Date(),
+      };
+      this.deliveryLocations.set(existing.id, updated);
+      return updated;
+    }
+
+    const id = randomUUID();
+    const location: DeliveryLocation = {
+      ...insertLocation,
+      id,
+      status: insertLocation.status || 'idle',
+      lastUpdated: new Date(),
+    };
+    this.deliveryLocations.set(id, location);
+    return location;
+  }
+
+  async getDeliveryLocation(deliveryPersonId: string): Promise<DeliveryLocation | undefined> {
+    return Array.from(this.deliveryLocations.values()).find(l => l.deliveryPersonId === deliveryPersonId);
+  }
+
+  async getAllDeliveryLocations(): Promise<DeliveryLocation[]> {
+    return Array.from(this.deliveryLocations.values());
+  }
+
+  async updateDeliveryLocation(deliveryPersonId: string, updates: Partial<DeliveryLocation>): Promise<DeliveryLocation | undefined> {
+    const location = Array.from(this.deliveryLocations.values()).find(l => l.deliveryPersonId === deliveryPersonId);
+    if (!location) return undefined;
+    const updated: DeliveryLocation = { ...location, ...updates, lastUpdated: new Date() };
+    this.deliveryLocations.set(location.id, updated);
+    return updated;
+  }
+
+  // Staff assignment methods
+  async getStaffByRole(role: string): Promise<User[]> {
+    return Array.from(this.users.values()).filter(u => u.role === role);
+  }
+
+  async getClinicalCustomers(): Promise<User[]> {
+    const clinicalPlanUsers = Array.from(this.plans.values())
+      .filter(p => p.type === 'Clinical')
+      .map(p => p.userId);
+    return Array.from(this.users.values()).filter(u => clinicalPlanUsers.includes(u.id));
+  }
 }
 
 // Database Storage Implementation using Drizzle ORM
@@ -934,6 +1082,100 @@ export class DbStorage implements IStorage {
       .where(eq(deliverySync.id, id))
       .returning();
     return updated;
+  }
+
+  // Acknowledgement methods
+  async createAcknowledgement(ack: InsertAcknowledgement): Promise<Acknowledgement> {
+    const [created] = await db.insert(acknowledgements).values(ack).returning();
+    return created;
+  }
+
+  async getStaffAcknowledgements(staffId: string): Promise<Acknowledgement[]> {
+    return await db.select().from(acknowledgements).where(eq(acknowledgements.staffId, staffId));
+  }
+
+  async getCustomerAcknowledgements(customerId: string): Promise<Acknowledgement[]> {
+    return await db.select().from(acknowledgements).where(eq(acknowledgements.customerId, customerId));
+  }
+
+  async updateAcknowledgement(id: string, updates: Partial<Acknowledgement>): Promise<Acknowledgement | undefined> {
+    const [updated] = await db.update(acknowledgements)
+      .set(updates)
+      .where(eq(acknowledgements.id, id))
+      .returning();
+    return updated;
+  }
+
+  async getAllAcknowledgements(): Promise<Acknowledgement[]> {
+    return await db.select().from(acknowledgements);
+  }
+
+  // Staff Activity Log methods
+  async createStaffActivity(activity: InsertStaffActivityLog): Promise<StaffActivityLog> {
+    const [created] = await db.insert(staffActivityLog).values(activity).returning();
+    return created;
+  }
+
+  async getStaffActivities(staffId: string): Promise<StaffActivityLog[]> {
+    return await db.select().from(staffActivityLog).where(eq(staffActivityLog.staffId, staffId));
+  }
+
+  async getCustomerActivities(customerId: string): Promise<StaffActivityLog[]> {
+    return await db.select().from(staffActivityLog).where(eq(staffActivityLog.customerId, customerId));
+  }
+
+  async getAllStaffActivities(): Promise<StaffActivityLog[]> {
+    return await db.select().from(staffActivityLog);
+  }
+
+  // Delivery Location methods
+  async upsertDeliveryLocation(location: InsertDeliveryLocation): Promise<DeliveryLocation> {
+    const existing = await this.getDeliveryLocation(location.deliveryPersonId);
+    
+    if (existing) {
+      const [updated] = await db.update(deliveryLocation)
+        .set({ ...location, lastUpdated: new Date() })
+        .where(eq(deliveryLocation.deliveryPersonId, location.deliveryPersonId))
+        .returning();
+      return updated;
+    }
+
+    const [created] = await db.insert(deliveryLocation).values(location).returning();
+    return created;
+  }
+
+  async getDeliveryLocation(deliveryPersonId: string): Promise<DeliveryLocation | undefined> {
+    const result = await db.select().from(deliveryLocation)
+      .where(eq(deliveryLocation.deliveryPersonId, deliveryPersonId));
+    return result[0];
+  }
+
+  async getAllDeliveryLocations(): Promise<DeliveryLocation[]> {
+    return await db.select().from(deliveryLocation);
+  }
+
+  async updateDeliveryLocation(deliveryPersonId: string, updates: Partial<DeliveryLocation>): Promise<DeliveryLocation | undefined> {
+    const [updated] = await db.update(deliveryLocation)
+      .set({ ...updates, lastUpdated: new Date() })
+      .where(eq(deliveryLocation.deliveryPersonId, deliveryPersonId))
+      .returning();
+    return updated;
+  }
+
+  // Staff assignment methods
+  async getStaffByRole(role: string): Promise<User[]> {
+    return await db.select().from(users).where(eq(users.role, role));
+  }
+
+  async getClinicalCustomers(): Promise<User[]> {
+    const clinicalPlans = await db.select().from(plans).where(eq(plans.type, 'Clinical'));
+    const userIds = clinicalPlans.map(p => p.userId);
+    
+    if (userIds.length === 0) return [];
+    
+    return await db.select().from(users).where(
+      eq(users.id, userIds[0])
+    );
   }
 }
 

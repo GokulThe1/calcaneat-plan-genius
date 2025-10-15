@@ -234,6 +234,38 @@ export const notifications = pgTable("notifications", {
   createdAt: timestamp("created_at").defaultNow(),
 });
 
+export const acknowledgements = pgTable("acknowledgements", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  staffId: varchar("staff_id").notNull().references(() => users.id),
+  customerId: varchar("customer_id").notNull().references(() => users.id),
+  taskType: text("task_type").notNull(),
+  stage: integer("stage"),
+  status: text("status").notNull().default('pending'),
+  acknowledgedAt: timestamp("acknowledged_at"),
+  completedAt: timestamp("completed_at"),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const staffActivityLog = pgTable("staff_activity_log", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  staffId: varchar("staff_id").notNull().references(() => users.id),
+  customerId: varchar("customer_id").references(() => users.id),
+  actionType: text("action_type").notNull(),
+  stage: integer("stage"),
+  description: text("description"),
+  metadata: jsonb("metadata"),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const deliveryLocation = pgTable("delivery_location", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  deliveryPersonId: varchar("delivery_person_id").notNull().references(() => users.id),
+  latitude: numeric("latitude").notNull(),
+  longitude: numeric("longitude").notNull(),
+  status: text("status").notNull().default('idle'),
+  lastUpdated: timestamp("last_updated").defaultNow(),
+});
+
 export const upsertUserSchema = createInsertSchema(users).omit({
   createdAt: true,
   updatedAt: true,
@@ -327,6 +359,21 @@ export const insertDeliverySyncSchema = createInsertSchema(deliverySync).omit({
   createdAt: true,
 });
 
+export const insertAcknowledgementSchema = createInsertSchema(acknowledgements).omit({
+  id: true,
+  createdAt: true,
+});
+
+export const insertStaffActivityLogSchema = createInsertSchema(staffActivityLog).omit({
+  id: true,
+  createdAt: true,
+});
+
+export const insertDeliveryLocationSchema = createInsertSchema(deliveryLocation).omit({
+  id: true,
+  lastUpdated: true,
+});
+
 export type UpsertUser = z.infer<typeof upsertUserSchema>;
 export type InsertUser = z.infer<typeof insertUserSchema>;
 export type User = typeof users.$inferSelect;
@@ -378,3 +425,12 @@ export type Address = typeof addresses.$inferSelect;
 
 export type InsertDeliverySync = z.infer<typeof insertDeliverySyncSchema>;
 export type DeliverySync = typeof deliverySync.$inferSelect;
+
+export type InsertAcknowledgement = z.infer<typeof insertAcknowledgementSchema>;
+export type Acknowledgement = typeof acknowledgements.$inferSelect;
+
+export type InsertStaffActivityLog = z.infer<typeof insertStaffActivityLogSchema>;
+export type StaffActivityLog = typeof staffActivityLog.$inferSelect;
+
+export type InsertDeliveryLocation = z.infer<typeof insertDeliveryLocationSchema>;
+export type DeliveryLocation = typeof deliveryLocation.$inferSelect;
