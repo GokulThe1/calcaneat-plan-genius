@@ -11,8 +11,38 @@ import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Label } from '@/components/ui/label';
-import { Users, FileText, CheckCircle2, Clock, Upload } from 'lucide-react';
+import { Users, FileText, CheckCircle2, Clock, Upload, Shield, MapPin, Activity } from 'lucide-react';
 import type { User, Milestone, Report, Document } from '@shared/schema';
+
+type Acknowledgement = {
+  id: string;
+  staffId: string;
+  customerId: string;
+  taskType: string;
+  stage: number | null;
+  status: 'pending' | 'acknowledged' | 'completed';
+  acknowledgedAt: Date | null;
+};
+
+type StaffActivity = {
+  id: number;
+  staffId: string;
+  customerId: string;
+  actionType: string;
+  stage: number | null;
+  description: string;
+  metadata: any;
+  createdAt: Date;
+};
+
+type DeliveryLocation = {
+  id: number;
+  deliveryPersonId: string;
+  latitude: number;
+  longitude: number;
+  status: string;
+  updatedAt: Date;
+};
 import { isUnauthorizedError } from '@/lib/authUtils';
 import { ObjectUploader } from '@/components/ObjectUploader';
 import type { UploadResult } from '@uppy/core';
@@ -68,6 +98,22 @@ export default function Admin() {
   const { data: documents } = useQuery<Document[]>({
     queryKey: ['/api/admin/documents', selectedCustomer],
     enabled: !!selectedCustomer && isAuthorized,
+  });
+
+  // New admin queries
+  const { data: allAcknowledgements = [] } = useQuery<Acknowledgement[]>({
+    queryKey: ['/api/admin/acknowledgements'],
+    enabled: isAuthorized,
+  });
+
+  const { data: allActivities = [] } = useQuery<StaffActivity[]>({
+    queryKey: ['/api/admin/activities'],
+    enabled: isAuthorized,
+  });
+
+  const { data: deliveryLocations = [] } = useQuery<DeliveryLocation[]>({
+    queryKey: ['/api/admin/delivery-locations'],
+    enabled: isAuthorized,
   });
 
   const updateMilestoneMutation = useMutation({
@@ -205,19 +251,158 @@ export default function Admin() {
             </CardContent>
           </Card>
 
-          {selectedCustomer && (
-            <Tabs defaultValue="milestones" className="w-full">
-              <TabsList className="grid w-full grid-cols-3">
-                <TabsTrigger value="milestones" data-testid="tab-milestones">
-                  Milestones
-                </TabsTrigger>
-                <TabsTrigger value="documents" data-testid="tab-documents">
-                  Documents
-                </TabsTrigger>
-                <TabsTrigger value="reports" data-testid="tab-reports">
-                  Reports
-                </TabsTrigger>
-              </TabsList>
+          <Tabs defaultValue="staff" className="w-full">
+            <TabsList className="grid w-full grid-cols-3 lg:grid-cols-6">
+              <TabsTrigger value="staff" data-testid="tab-staff">
+                Staff
+              </TabsTrigger>
+              <TabsTrigger value="acknowledgements" data-testid="tab-acknowledgements">
+                Acknowledgements
+              </TabsTrigger>
+              <TabsTrigger value="delivery" data-testid="tab-delivery">
+                Delivery
+              </TabsTrigger>
+              <TabsTrigger value="milestones" data-testid="tab-milestones">
+                Milestones
+              </TabsTrigger>
+              <TabsTrigger value="documents" data-testid="tab-documents">
+                Documents
+              </TabsTrigger>
+              <TabsTrigger value="reports" data-testid="tab-reports">
+                Reports
+              </TabsTrigger>
+            </TabsList>
+
+            <TabsContent value="staff" className="space-y-4">
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <Shield className="h-5 w-5" />
+                    Staff Monitoring
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                    {['consultant', 'lab_technician', 'nutritionist', 'chef', 'delivery'].map(role => {
+                      // Filter activities for this specific role
+                      const roleActivities = allActivities.filter(act => 
+                        (role === 'consultant' && act.actionType === 'document_uploaded' && (act.stage === 1 || act.stage === 3)) ||
+                        (role === 'lab_technician' && act.actionType === 'document_uploaded' && act.stage === 2) ||
+                        (role === 'nutritionist' && act.actionType === 'document_uploaded' && act.stage === 4) ||
+                        (role === 'chef' && act.actionType === 'meal_prepared') ||
+                        (role === 'delivery' && act.actionType === 'delivery_completed')
+                      );
+                      // Count unique staff IDs
+                      const uniqueStaffCount = new Set(roleActivities.map(a => a.staffId)).size;
+
+                      return (
+                        <Card key={role}>
+                          <CardHeader>
+                            <CardTitle className="text-sm capitalize">{role.replace('_', ' ')}</CardTitle>
+                          </CardHeader>
+                          <CardContent>
+                            <p className="text-2xl font-bold">{uniqueStaffCount}</p>
+                            <p className="text-sm text-muted-foreground">Active staff</p>
+                          </CardContent>
+                        </Card>
+                      );
+                    })}
+                  </div>
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <Activity className="h-5 w-5" />
+                    Recent Activities ({allActivities.slice(0, 10).length})
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-2 max-h-96 overflow-y-auto">
+                    {allActivities.slice(0, 10).map(activity => (
+                      <div key={activity.id} className="p-3 bg-muted rounded-md" data-testid={`activity-${activity.id}`}>
+                        <p className="font-medium">{activity.description}</p>
+                        <p className="text-sm text-muted-foreground">
+                          Staff: {activity.staffId} | Customer: {activity.customerId}
+                        </p>
+                        <p className="text-xs text-muted-foreground">
+                          {new Date(activity.createdAt).toLocaleString()}
+                        </p>
+                      </div>
+                    ))}
+                  </div>
+                </CardContent>
+              </Card>
+            </TabsContent>
+
+            <TabsContent value="acknowledgements" className="space-y-4">
+              <Card>
+                <CardHeader>
+                  <CardTitle>Acknowledgement Dashboard ({allAcknowledgements.length})</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-2 max-h-96 overflow-y-auto">
+                    {allAcknowledgements.map(ack => (
+                      <div key={ack.id} className="flex items-center justify-between p-3 bg-muted rounded-md" data-testid={`ack-${ack.id}`}>
+                        <div>
+                          <p className="font-medium">{ack.taskType}</p>
+                          <p className="text-sm text-muted-foreground">
+                            Staff: {ack.staffId} | Customer: {ack.customerId}
+                          </p>
+                          {ack.stage && <Badge variant="outline">Stage {ack.stage}</Badge>}
+                        </div>
+                        <Badge variant={
+                          ack.status === 'completed' ? 'default' :
+                          ack.status === 'acknowledged' ? 'secondary' :
+                          'outline'
+                        }>
+                          {ack.status}
+                        </Badge>
+                      </div>
+                    ))}
+                  </div>
+                </CardContent>
+              </Card>
+            </TabsContent>
+
+            <TabsContent value="delivery" className="space-y-4">
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <MapPin className="h-5 w-5" />
+                    Delivery Tracking ({deliveryLocations.length})
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-2 max-h-96 overflow-y-auto">
+                    {deliveryLocations.map(location => (
+                      <div key={location.id} className="p-3 bg-muted rounded-md" data-testid={`location-${location.id}`}>
+                        <div className="flex items-center justify-between">
+                          <div>
+                            <p className="font-medium">Delivery Person: {location.deliveryPersonId}</p>
+                            <p className="text-sm text-muted-foreground">
+                              Lat: {location.latitude.toFixed(6)}, Lng: {location.longitude.toFixed(6)}
+                            </p>
+                            <p className="text-xs text-muted-foreground">
+                              Updated: {new Date(location.updatedAt).toLocaleString()}
+                            </p>
+                          </div>
+                          <Badge variant={location.status === 'on_delivery' ? 'default' : 'outline'}>
+                            {location.status}
+                          </Badge>
+                        </div>
+                      </div>
+                    ))}
+                    {deliveryLocations.length === 0 && (
+                      <p className="text-center text-muted-foreground py-8">No delivery locations tracked</p>
+                    )}
+                  </div>
+                </CardContent>
+              </Card>
+            </TabsContent>
+
+            {selectedCustomer && (<>
 
               <TabsContent value="milestones" className="space-y-4">
                 <Card>
@@ -511,8 +696,8 @@ export default function Admin() {
                   </CardContent>
                 </Card>
               </TabsContent>
-            </Tabs>
-          )}
+            </>)}
+          </Tabs>
         </div>
       </div>
     </div>
