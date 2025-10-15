@@ -1,0 +1,378 @@
+🧠 SYSTEM OVERVIEW
+
+The system operates with two distinct types of access:
+
+Clinical-Only Panels — Accessible only for Clinical-Level Guided Plan customers.
+→ Consultants (Doctors), Lab Technicians, Nutritionists
+
+Common Panels — Shared across all customers (Clinical + AI plans).
+→ Admin, Chef, and Delivery
+
+🩺 1. Clinical-Only Panels
+
+Accessible only for customers enrolled in the Clinical-Level Guided Plan.
+
+Included Roles:
+
+🧑‍⚕️ Consultant (Doctor)
+
+🧪 Lab Technician
+
+🧘‍♀️ Nutritionist
+
+Access Filter:
+
+plan_type = 'Clinical'
+
+🧑‍⚕️ Consultant Panel
+
+Purpose:
+Handle medical consultations and approval reports for Clinical customers.
+
+Modules:
+
+Assigned Customers List
+
+View all Clinical customers assigned by admin.
+
+Status badges for Stage 1 (Consultation) & Stage 3 (Approval).
+
+Upload Reports
+
+Upload Basic Consultation Report (Stage 1)
+
+Upload Approval Report (Stage 3)
+
+Add remarks, notes for nutritionist.
+
+Instant update → visible in Customer Dashboard → Stage marked complete.
+
+Patient Overview
+
+View patient medical history & diagnostic results.
+
+Timeline: Consultation → Diagnostics → Diet Approval → Activation.
+
+Acknowledgement
+
+Must acknowledge assigned customers/tasks.
+
+Acknowledgement recorded in database for admin verification.
+
+🧪 Lab Technician Panel
+
+Purpose:
+Handle test data, upload diagnostic reports, and mark diagnostic stages completed.
+
+Modules:
+
+Assigned Customer List
+
+List of customers pending collection or report upload.
+
+Status: Pending / Collected / Uploaded / Verified.
+
+Upload Test Report
+
+Upload diagnostics (PDF/images)
+
+Enter test metadata (blood, sugar, etc.)
+
+Upload instantly marks Stage 2 complete.
+
+Acknowledgement
+
+Technician must acknowledge receipt of each assigned task (visible to admin).
+
+Test Log
+
+Shows history of uploaded and verified test reports.
+
+🧘‍♀️ Nutritionist Panel
+
+Purpose:
+Upload and manage personalized diet charts post doctor approval (Stage 4).
+
+Modules:
+
+Customer Queue
+
+Shows all Clinical customers ready for diet chart creation (Stage 3 complete).
+
+Diet Chart Creator
+
+Upload PDF or manually enter day-wise diet plan with macros.
+
+Automatically marks Stage 4 completed.
+
+Visible instantly on the customer dashboard.
+
+Edit / Update Diet Chart
+
+Option to re-upload or modify existing plans.
+
+Acknowledgement
+
+Acknowledge receipt of assigned customers for Stage 4 work.
+
+Diet Chart Repository
+
+List of all uploaded diet charts with timestamps.
+
+🌍 2. Common Panels (All Customers)
+
+These panels serve both Clinical-Level and AI-Assisted plan customers.
+No plan_type restrictions apply.
+
+Included Roles:
+
+🧑‍💼 Admin
+
+👨‍🍳 Chef
+
+🚚 Delivery Person
+
+👨‍🍳 Chef Panel
+
+Purpose:
+Generate daily meal production lists for all active plans.
+
+Modules:
+
+Active Plans View
+
+Displays both Clinical & AI plan customers with active subscriptions.
+
+Filter by meal type and time slot.
+
+Daily Preparation List
+
+Auto-generated ingredient list from diet charts.
+
+Mark as Prepared
+
+Meals marked “Prepared” sync automatically to Delivery Panel.
+
+Meal Reference
+
+Read-only access to nutritionist diet charts for portion guidance.
+
+🚚 Delivery Person Panel
+
+Purpose:
+Deliver meals to all customers and update delivery status (tracking enabled).
+
+Modules:
+
+Assigned Deliveries
+
+List of all assigned deliveries (Clinical + AI)
+
+Meal type, address, delivery time, and contact.
+
+Delivery Status
+
+Mark “Out for Delivery” → “Delivered”.
+
+Delivery Logs
+
+History of completed deliveries.
+
+Auto-clear logs after 24 hours.
+
+GPS Tracking (Enabled)
+
+Delivery person location auto-updates in admin panel.
+
+Location stored in delivery_location table.
+
+Notifications
+
+“Meal ready for delivery” or “Delivery confirmed” updates.
+
+🧑‍💼 Admin Panel
+
+Purpose:
+Centralized command center — monitor staff activity, control assignments, verify acknowledgements, manage deliveries, and oversee entire workflow.
+
+🔹 Admin Panel Functional Modules
+1. User & Role Management
+
+Add/edit/remove internal users (doctor, lab, nutritionist, chef, delivery).
+
+Assign roles.
+
+Reset passwords or access.
+
+2. Customer Management
+
+View both Clinical & AI customers.
+
+Assign customers to consultant, lab technician, nutritionist.
+
+Reassign customers if required.
+
+Filter by plan type, stage, or assigned staff.
+
+3. Stage Monitoring
+
+View all customer stages (1–6) and who completed them.
+
+Force-update stage status if manual override needed.
+
+Filter by:
+
+Stage Pending / Completed
+
+Assigned Staff
+
+4. Staff Acknowledgement & Verification Dashboard
+
+Purpose: Admin monitors acknowledgements for clinical staff.
+
+Features:
+
+Table showing which consultant/lab/nutritionist acknowledged assigned work.
+
+Columns:
+
+Staff Name	Role	Assigned Task	Acknowledged	Time	Status
+Dr. Arjun	Consultant	Stage 1 Report	✅ Yes	10:42 AM	In Progress
+Kavya	Lab Technician	Diagnostics	❌ No	—	Pending
+Priya	Nutritionist	Diet Chart	✅ Yes	11:10 AM	Completed
+
+Backend Tables:
+
+acknowledgements (tracks task acceptance & completion)
+
+staff_activity_log (tracks uploads, timestamps)
+
+Admin Actions:
+
+Send reminders for unacknowledged tasks.
+
+Mark overdue if no action within configured time.
+
+5. Staff Monitoring Panel (for Consultants, Labs, Nutritionists)
+
+Purpose: Allow admin to monitor Clinical-level panels without location tracking.
+
+Modules:
+
+View Staff Progress:
+List of all Clinical staff, number of assigned patients, completed stages, and pending tasks.
+
+Access Report Upload Logs:
+Show timestamp, file name, stage, and completion status.
+
+Direct Report Preview:
+Admin can open any uploaded file (doctor report, test result, or diet chart) directly.
+
+Performance Metrics:
+Avg. completion time per staff, no. of patients handled, task completion rate.
+
+6. Delivery Location Tracking
+
+Purpose: Track only Delivery Personnel’s real-time location.
+
+Table: delivery_location
+
+Column	Type	Description
+delivery_person_id	uuid	FK → users.id
+latitude	numeric	Current latitude
+longitude	numeric	Current longitude
+last_updated	timestamp	Auto-updated every 2 min
+status	text	“On Duty”, “Idle”, “Offline”
+
+Admin View:
+
+Map + list view of all delivery persons currently active.
+
+Show:
+
+Delivery Person	Zone	Current Location	Last Update	Status
+Ramesh	South	[12.94, 80.12]	12:41 PM	On Duty
+7. Reports & Documentation
+
+Access all uploaded documents:
+
+Consultation reports
+
+Test reports
+
+Approval reports
+
+Diet charts
+
+Consolidated final reports
+
+Download or merge reports (PDF compilation).
+
+Filter by stage, staff, or date range.
+
+8. Payments & Billing
+
+Manage consultation & plan activation payments.
+
+Auto-calculate payable after consultation fee deduction.
+
+Export invoice summaries.
+
+9. Delivery Overview
+
+Manage and assign delivery personnel.
+
+View active deliveries (Clinical + AI).
+
+Filter by city, time slot, or plan type.
+
+Monitor live delivery status from delivery_location.
+
+10. Notifications & Alerts
+
+Configurable notifications for:
+
+Stage completions
+
+Pending acknowledgements
+
+Delivery delays
+
+Payment success
+
+Integration with Email / WhatsApp / SMS APIs (optional)
+
+🧱 Access Control Summary
+Role	Access Scope	Tracks Location?	Controlled by Admin?
+Consultant	Clinical customers only	❌	✅ Admin monitors uploads & acknowledgements
+Lab Technician	Clinical customers only	❌	✅ Admin monitors uploads & acknowledgements
+Nutritionist	Clinical customers only	❌	✅ Admin monitors uploads & acknowledgements
+Chef	All customers	❌	✅ Admin can view preparation stats
+Delivery	All customers	✅	✅ Admin tracks real-time location
+Admin	All customers	N/A	Master control for all
+🧩 Backend Notes
+
+Location tracking only for delivery_person role
+
+Table: delivery_location
+
+Updated every 2–5 minutes by delivery person’s device
+
+Acknowledgement tracking for consultant/lab/nutritionist
+
+Table: acknowledgements
+
+Stored with timestamps & status
+
+Activity tracking
+
+Table: staff_activity_log
+
+Logs each upload, acknowledgment, completion
+
+✅ Expected Final Behavior
+Role	Behavior Summary
+Consultant / Lab / Nutritionist	See only Clinical plan customers; upload reports; acknowledge assignments.
+Chef	See all active plans; generate meal lists.
+Delivery Person	See all deliveries; GPS tracking enabled.
+Admin	Full control — can assign, verify, monitor, track delivery, and view progress of every staff (consultant/lab/nutritionist).
