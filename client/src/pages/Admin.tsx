@@ -569,8 +569,8 @@ export default function Admin() {
                       onClick={async () => {
                         if (!selectedCustomer) return;
                         try {
-                          await apiRequest('POST', `/api/reports/${selectedCustomer.id}/consolidated`, {});
-                          queryClient.invalidateQueries({ queryKey: ['/api/user/documents', selectedCustomer.id] });
+                          await apiRequest('POST', `/api/reports/${selectedCustomer}/consolidated`, {});
+                          queryClient.invalidateQueries({ queryKey: ['/api/user/documents', selectedCustomer] });
                           toast({
                             title: "Report Generated",
                             description: "Consolidated clinical report has been generated successfully"
