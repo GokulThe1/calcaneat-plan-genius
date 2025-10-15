@@ -19,6 +19,7 @@ import Admin from "@/pages/Admin";
 import Kitchen from "@/pages/Kitchen";
 import Delivery from "@/pages/Delivery";
 import ConsultantPanel from "@/pages/ConsultantPanel";
+import LabTechnicianPanel from "@/pages/LabTechnicianPanel";
 import NotFound from "@/pages/not-found";
 
 function Router() {
@@ -54,6 +55,7 @@ function Router() {
           <Route path="/kitchen" component={Kitchen} />
           <Route path="/delivery" component={Delivery} />
           <Route path="/consultant" component={ConsultantPanel} />
+          <Route path="/lab" component={LabTechnicianPanel} />
           <Route component={NotFound} />
         </>
       )}
