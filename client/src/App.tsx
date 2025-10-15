@@ -18,6 +18,7 @@ import Dashboard from "@/pages/Dashboard";
 import Admin from "@/pages/Admin";
 import Kitchen from "@/pages/Kitchen";
 import Delivery from "@/pages/Delivery";
+import ConsultantPanel from "@/pages/ConsultantPanel";
 import NotFound from "@/pages/not-found";
 
 function Router() {
@@ -52,6 +53,7 @@ function Router() {
           <Route path="/admin" component={Admin} />
           <Route path="/kitchen" component={Kitchen} />
           <Route path="/delivery" component={Delivery} />
+          <Route path="/consultant" component={ConsultantPanel} />
           <Route component={NotFound} />
         </>
       )}

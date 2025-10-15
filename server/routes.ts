@@ -1454,6 +1454,52 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Update acknowledgement status
+  app.patch('/api/acknowledgements/:id', isAuthenticated, async (req: any, res) => {
+    try {
+      const staffId = req.user.claims.sub;
+      const { id } = req.params;
+      
+      // Validate status field
+      const statusSchema = z.enum(['pending', 'acknowledged', 'completed']);
+      const status = statusSchema.parse(req.body.status);
+      
+      const updates: Partial<typeof acknowledgements.$inferSelect> = {
+        status
+      };
+      
+      // Set acknowledgedAt only when status becomes 'acknowledged' or 'completed'
+      if (status === 'acknowledged' || status === 'completed') {
+        updates.acknowledgedAt = new Date();
+      }
+      
+      const ack = await storage.updateAcknowledgement(id, updates);
+      
+      if (!ack) {
+        return res.status(404).json({ message: "Acknowledgement not found" });
+      }
+      
+      // Log activity
+      const activityData = insertStaffActivityLogSchema.parse({
+        staffId,
+        customerId: ack.customerId,
+        actionType: 'task_acknowledged',
+        stage: ack.stage,
+        description: `Updated task status: ${ack.taskType} to ${status}`,
+        metadata: { acknowledgementId: ack.id, status }
+      });
+      await storage.createStaffActivity(activityData);
+      
+      res.json(ack);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ message: "Invalid request data", errors: error.errors });
+      }
+      console.error("Error updating acknowledgement:", error);
+      res.status(500).json({ message: "Failed to update acknowledgement" });
+    }
+  });
+
   // Get staff acknowledgements
   app.get('/api/acknowledgements/staff', isAuthenticated, async (req: any, res) => {
     try {
