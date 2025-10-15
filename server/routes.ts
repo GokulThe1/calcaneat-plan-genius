@@ -12,7 +12,10 @@ import {
   insertDocumentSchema,
   insertDietPlanSchema,
   insertAddressSchema,
-  insertDeliverySyncSchema
+  insertDeliverySyncSchema,
+  insertAcknowledgementSchema,
+  insertStaffActivityLogSchema,
+  insertDeliveryLocationSchema
 } from "@shared/schema";
 import { z } from "zod";
 import Razorpay from "razorpay";
@@ -95,6 +98,36 @@ const isNutritionist: RequestHandler = async (req: any, res, next) => {
   const user = await storage.getUser(userId);
   
   if (!user || (user.role !== 'nutritionist' && user.role !== 'clinical' && user.role !== 'admin')) {
+    return res.status(403).json({ message: "Forbidden" });
+  }
+  
+  next();
+};
+
+const isLabTechnician: RequestHandler = async (req: any, res, next) => {
+  if (!req.user) {
+    return res.status(401).json({ message: "Unauthorized" });
+  }
+  
+  const userId = req.user.claims.sub;
+  const user = await storage.getUser(userId);
+  
+  if (!user || (user.role !== 'lab_technician' && user.role !== 'clinical' && user.role !== 'admin')) {
+    return res.status(403).json({ message: "Forbidden" });
+  }
+  
+  next();
+};
+
+const isChef: RequestHandler = async (req: any, res, next) => {
+  if (!req.user) {
+    return res.status(401).json({ message: "Unauthorized" });
+  }
+  
+  const userId = req.user.claims.sub;
+  const user = await storage.getUser(userId);
+  
+  if (!user || (user.role !== 'chef' && user.role !== 'kitchen' && user.role !== 'admin')) {
     return res.status(403).json({ message: "Forbidden" });
   }
   
@@ -1012,6 +1045,501 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       console.error("Error creating document:", error);
       res.status(500).json({ message: "Failed to create document" });
+    }
+  });
+
+  // ========================================
+  // CONSULTANT ROUTES (Doctor Panel)
+  // ========================================
+  
+  // Get assigned Clinical customers for consultant
+  app.get('/api/consultant/customers', isAuthenticated, isConsultant, async (req: any, res) => {
+    try {
+      const customers = await storage.getClinicalCustomers();
+      res.json(customers);
+    } catch (error) {
+      console.error("Error fetching consultant customers:", error);
+      res.status(500).json({ message: "Failed to fetch customers" });
+    }
+  });
+
+  // Upload consultation report (Stage 1) or approval report (Stage 3)
+  app.post('/api/consultant/upload-report', isAuthenticated, isConsultant, async (req: any, res) => {
+    try {
+      const staffId = req.user.claims.sub;
+      
+      const objectStorageService = new ObjectStorageService();
+      
+      // Set ACL with patient as owner
+      const objectPath = await objectStorageService.trySetObjectEntityAclPolicy(req.body.url, {
+        owner: req.body.userId,
+        visibility: "private"
+      });
+      
+      // Validate and create document
+      const documentData = insertDocumentSchema.parse({
+        userId: req.body.userId,
+        stage: req.body.stage,
+        label: req.body.label,
+        url: objectPath,
+        uploadedByRole: 'consultant'
+      });
+      
+      const document = await storage.createDocument(documentData);
+      
+      // Log activity
+      const activityData = insertStaffActivityLogSchema.parse({
+        staffId,
+        customerId: req.body.userId,
+        actionType: 'report_upload',
+        stage: req.body.stage,
+        description: `Uploaded ${req.body.label} for stage ${req.body.stage}`,
+        metadata: { documentId: document.id }
+      });
+      await storage.createStaffActivity(activityData);
+      
+      // Update stage progress to completed
+      const stageProgresses = await storage.getUserStageProgress(req.body.userId);
+      const stageProgress = stageProgresses.find(s => s.stage === req.body.stage);
+      if (stageProgress) {
+        await storage.updateStageProgress(stageProgress.id, { status: 'completed' });
+      }
+      
+      res.json(document);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ message: "Invalid request data", errors: error.errors });
+      }
+      console.error("Error uploading consultant report:", error);
+      res.status(500).json({ message: "Failed to upload report" });
+    }
+  });
+
+  // ========================================
+  // LAB TECHNICIAN ROUTES
+  // ========================================
+  
+  // Get assigned Clinical customers for lab technician
+  app.get('/api/lab/customers', isAuthenticated, isLabTechnician, async (req: any, res) => {
+    try {
+      const customers = await storage.getClinicalCustomers();
+      res.json(customers);
+    } catch (error) {
+      console.error("Error fetching lab customers:", error);
+      res.status(500).json({ message: "Failed to fetch customers" });
+    }
+  });
+
+  // Upload test report (Stage 2)
+  app.post('/api/lab/upload-report', isAuthenticated, isLabTechnician, async (req: any, res) => {
+    try {
+      const staffId = req.user.claims.sub;
+      
+      const objectStorageService = new ObjectStorageService();
+      
+      // Set ACL with patient as owner
+      const objectPath = await objectStorageService.trySetObjectEntityAclPolicy(req.body.url, {
+        owner: req.body.userId,
+        visibility: "private"
+      });
+      
+      // Validate and create document for stage 2
+      const documentData = insertDocumentSchema.parse({
+        userId: req.body.userId,
+        stage: 2,
+        label: req.body.label,
+        url: objectPath,
+        uploadedByRole: 'lab_technician'
+      });
+      
+      const document = await storage.createDocument(documentData);
+      
+      // Log activity
+      const activityData = insertStaffActivityLogSchema.parse({
+        staffId,
+        customerId: req.body.userId,
+        actionType: 'test_upload',
+        stage: 2,
+        description: `Uploaded test report: ${req.body.label}`,
+        metadata: { documentId: document.id }
+      });
+      await storage.createStaffActivity(activityData);
+      
+      // Update stage 2 progress to completed
+      const stageProgresses = await storage.getUserStageProgress(req.body.userId);
+      const stageProgress = stageProgresses.find(s => s.stage === 2);
+      if (stageProgress) {
+        await storage.updateStageProgress(stageProgress.id, { status: 'completed' });
+      }
+      
+      res.json(document);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ message: "Invalid request data", errors: error.errors });
+      }
+      console.error("Error uploading lab report:", error);
+      res.status(500).json({ message: "Failed to upload report" });
+    }
+  });
+
+  // ========================================
+  // NUTRITIONIST ROUTES
+  // ========================================
+  
+  // Get Clinical customers ready for diet chart (stage 3 completed)
+  app.get('/api/nutritionist/customers', isAuthenticated, isNutritionist, async (req: any, res) => {
+    try {
+      const customers = await storage.getClinicalCustomers();
+      
+      // Filter customers where stage 3 is completed
+      const customersWithProgress = await Promise.all(
+        customers.map(async (customer) => {
+          const stageProgress = await storage.getUserStageProgress(customer.id);
+          const stage3 = stageProgress.find(s => s.stage === 3);
+          return {
+            ...customer,
+            stage3Status: stage3?.status || 'pending'
+          };
+        })
+      );
+      
+      res.json(customersWithProgress.filter(c => c.stage3Status === 'completed'));
+    } catch (error) {
+      console.error("Error fetching nutritionist customers:", error);
+      res.status(500).json({ message: "Failed to fetch customers" });
+    }
+  });
+
+  // Upload diet chart (Stage 4)
+  app.post('/api/nutritionist/upload-diet-chart', isAuthenticated, isNutritionist, async (req: any, res) => {
+    try {
+      const staffId = req.user.claims.sub;
+      
+      const objectStorageService = new ObjectStorageService();
+      
+      // Set ACL with patient as owner
+      const objectPath = await objectStorageService.trySetObjectEntityAclPolicy(req.body.url, {
+        owner: req.body.userId,
+        visibility: "private"
+      });
+      
+      // Validate and create diet plan document
+      const documentData = insertDocumentSchema.parse({
+        userId: req.body.userId,
+        stage: 4,
+        label: req.body.label,
+        url: objectPath,
+        uploadedByRole: 'nutritionist'
+      });
+      
+      const document = await storage.createDocument(documentData);
+      
+      // Create/update diet plan entry
+      const existingDietPlan = await storage.getUserDietPlan(req.body.userId);
+      if (existingDietPlan) {
+        await storage.updateDietPlan(existingDietPlan.id, {
+          pdfUrl: objectPath,
+          macros: req.body.macros,
+          weeklyPlan: req.body.weeklyPlan
+        });
+      } else {
+        const dietPlanData = insertDietPlanSchema.parse({
+          userId: req.body.userId,
+          pdfUrl: objectPath,
+          macros: req.body.macros,
+          weeklyPlan: req.body.weeklyPlan
+        });
+        await storage.createDietPlan(dietPlanData);
+      }
+      
+      // Log activity
+      const activityData = insertStaffActivityLogSchema.parse({
+        staffId,
+        customerId: req.body.userId,
+        actionType: 'diet_chart_upload',
+        stage: 4,
+        description: `Uploaded diet chart: ${req.body.label}`,
+        metadata: { documentId: document.id }
+      });
+      await storage.createStaffActivity(activityData);
+      
+      // Update stage 4 progress to completed
+      const stageProgresses = await storage.getUserStageProgress(req.body.userId);
+      const stageProgress = stageProgresses.find(s => s.stage === 4);
+      if (stageProgress) {
+        await storage.updateStageProgress(stageProgress.id, { status: 'completed' });
+      }
+      
+      res.json(document);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ message: "Invalid request data", errors: error.errors });
+      }
+      console.error("Error uploading diet chart:", error);
+      res.status(500).json({ message: "Failed to upload diet chart" });
+    }
+  });
+
+  // ========================================
+  // CHEF ROUTES
+  // ========================================
+  
+  // Get all active plans (both Clinical and AI)
+  app.get('/api/chef/active-plans', isAuthenticated, isChef, async (req: any, res) => {
+    try {
+      // Get all users with active plans
+      const allCustomers = await storage.getCustomers();
+      
+      const activePlans = await Promise.all(
+        allCustomers.map(async (customer) => {
+          const plan = await storage.getUserPlan(customer.id);
+          const addresses = await storage.getUserAddresses(customer.id);
+          const dietPlan = await storage.getUserDietPlan(customer.id);
+          
+          return {
+            customer,
+            plan,
+            addresses,
+            dietPlan
+          };
+        })
+      );
+      
+      // Filter only active plans
+      res.json(activePlans.filter(p => p.plan?.isActive));
+    } catch (error) {
+      console.error("Error fetching active plans:", error);
+      res.status(500).json({ message: "Failed to fetch active plans" });
+    }
+  });
+
+  // Mark meal as prepared
+  app.post('/api/chef/mark-prepared', isAuthenticated, isChef, async (req: any, res) => {
+    try {
+      const staffId = req.user.claims.sub;
+      
+      // Validate and log activity
+      const activityData = insertStaffActivityLogSchema.parse({
+        staffId,
+        customerId: req.body.userId,
+        actionType: 'meal_prepared',
+        description: `Marked ${req.body.mealType} as prepared for ${req.body.date}`,
+        metadata: { mealType: req.body.mealType, date: req.body.date }
+      });
+      
+      await storage.createStaffActivity(activityData);
+      
+      res.json({ success: true });
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ message: "Invalid request data", errors: error.errors });
+      }
+      console.error("Error marking meal as prepared:", error);
+      res.status(500).json({ message: "Failed to mark meal as prepared" });
+    }
+  });
+
+  // ========================================
+  // DELIVERY ROUTES
+  // ========================================
+  
+  // Get assigned deliveries
+  app.get('/api/delivery/assigned', isAuthenticated, isDelivery, async (req: any, res) => {
+    try {
+      const deliveryPersonId = req.user.claims.sub;
+      
+      // Get orders assigned to this delivery person
+      const allOrders = await storage.getOrdersByStatus('prepared');
+      const assignedOrders = allOrders.filter(o => o.assignedDeliveryPersonId === deliveryPersonId);
+      
+      res.json(assignedOrders);
+    } catch (error) {
+      console.error("Error fetching assigned deliveries:", error);
+      res.status(500).json({ message: "Failed to fetch deliveries" });
+    }
+  });
+
+  // Update delivery status
+  app.patch('/api/delivery/status/:orderId', isAuthenticated, isDelivery, async (req: any, res) => {
+    try {
+      const { orderId } = req.params;
+      const deliveryPersonId = req.user.claims.sub;
+      
+      const order = await storage.updateOrderStatus(orderId, req.body.status);
+      
+      if (order && req.body.status === 'delivered') {
+        const activityData = insertStaffActivityLogSchema.parse({
+          staffId: deliveryPersonId,
+          customerId: order.userId,
+          actionType: 'delivery_completed',
+          description: `Delivered order ${orderId}`,
+          metadata: { orderId, deliveredAt: new Date() }
+        });
+        await storage.createStaffActivity(activityData);
+      }
+      
+      res.json(order);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ message: "Invalid request data", errors: error.errors });
+      }
+      console.error("Error updating delivery status:", error);
+      res.status(500).json({ message: "Failed to update status" });
+    }
+  });
+
+  // Update delivery location (GPS tracking)
+  app.post('/api/delivery/location', isAuthenticated, isDelivery, async (req: any, res) => {
+    try {
+      const deliveryPersonId = req.user.claims.sub;
+      
+      const locationData = insertDeliveryLocationSchema.parse({
+        deliveryPersonId,
+        latitude: req.body.latitude,
+        longitude: req.body.longitude,
+        status: req.body.status || 'on_duty'
+      });
+      
+      const location = await storage.upsertDeliveryLocation(locationData);
+      
+      res.json(location);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ message: "Invalid location data", errors: error.errors });
+      }
+      console.error("Error updating delivery location:", error);
+      res.status(500).json({ message: "Failed to update location" });
+    }
+  });
+
+  // ========================================
+  // ACKNOWLEDGEMENT ROUTES (All Clinical Staff)
+  // ========================================
+  
+  // Create acknowledgement
+  app.post('/api/acknowledgements', isAuthenticated, async (req: any, res) => {
+    try {
+      const staffId = req.user.claims.sub;
+      
+      const ackData = insertAcknowledgementSchema.parse({
+        staffId,
+        customerId: req.body.customerId,
+        taskType: req.body.taskType,
+        stage: req.body.stage,
+        status: req.body.status || 'pending',
+        acknowledgedAt: new Date()
+      });
+      
+      const ack = await storage.createAcknowledgement(ackData);
+      
+      // Log activity
+      const activityData = insertStaffActivityLogSchema.parse({
+        staffId,
+        customerId: ackData.customerId,
+        actionType: 'task_acknowledged',
+        stage: ackData.stage,
+        description: `Acknowledged task: ${ackData.taskType}`,
+        metadata: { acknowledgementId: ack.id }
+      });
+      
+      await storage.createStaffActivity(activityData);
+      
+      res.json(ack);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ message: "Invalid acknowledgement data", errors: error.errors });
+      }
+      console.error("Error creating acknowledgement:", error);
+      res.status(500).json({ message: "Failed to create acknowledgement" });
+    }
+  });
+
+  // Get staff acknowledgements
+  app.get('/api/acknowledgements/staff', isAuthenticated, async (req: any, res) => {
+    try {
+      const staffId = req.user.claims.sub;
+      const acknowledgements = await storage.getStaffAcknowledgements(staffId);
+      res.json(acknowledgements);
+    } catch (error) {
+      console.error("Error fetching acknowledgements:", error);
+      res.status(500).json({ message: "Failed to fetch acknowledgements" });
+    }
+  });
+
+  // Get all acknowledgements (admin only)
+  app.get('/api/admin/acknowledgements', isAuthenticated, isAdmin, async (req: any, res) => {
+    try {
+      const acknowledgements = await storage.getAllAcknowledgements();
+      res.json(acknowledgements);
+    } catch (error) {
+      console.error("Error fetching all acknowledgements:", error);
+      res.status(500).json({ message: "Failed to fetch acknowledgements" });
+    }
+  });
+
+  // ========================================
+  // STAFF ACTIVITY LOG ROUTES
+  // ========================================
+  
+  // Get staff activities (own activities)
+  app.get('/api/activities/staff', isAuthenticated, async (req: any, res) => {
+    try {
+      const staffId = req.user.claims.sub;
+      const activities = await storage.getStaffActivities(staffId);
+      res.json(activities);
+    } catch (error) {
+      console.error("Error fetching staff activities:", error);
+      res.status(500).json({ message: "Failed to fetch activities" });
+    }
+  });
+
+  // Get all staff activities (admin only)
+  app.get('/api/admin/activities', isAuthenticated, isAdmin, async (req: any, res) => {
+    try {
+      const activities = await storage.getAllStaffActivities();
+      res.json(activities);
+    } catch (error) {
+      console.error("Error fetching all activities:", error);
+      res.status(500).json({ message: "Failed to fetch activities" });
+    }
+  });
+
+  // Get customer activities (admin only)
+  app.get('/api/admin/activities/:customerId', isAuthenticated, isAdmin, async (req: any, res) => {
+    try {
+      const { customerId } = req.params;
+      const activities = await storage.getCustomerActivities(customerId);
+      res.json(activities);
+    } catch (error) {
+      console.error("Error fetching customer activities:", error);
+      res.status(500).json({ message: "Failed to fetch activities" });
+    }
+  });
+
+  // ========================================
+  // ADMIN - DELIVERY TRACKING ROUTES
+  // ========================================
+  
+  // Get all delivery locations (admin only)
+  app.get('/api/admin/delivery-locations', isAuthenticated, isAdmin, async (req: any, res) => {
+    try {
+      const locations = await storage.getAllDeliveryLocations();
+      res.json(locations);
+    } catch (error) {
+      console.error("Error fetching delivery locations:", error);
+      res.status(500).json({ message: "Failed to fetch locations" });
+    }
+  });
+
+  // Get staff by role (admin only)
+  app.get('/api/admin/staff/:role', isAuthenticated, isAdmin, async (req: any, res) => {
+    try {
+      const { role } = req.params;
+      const staff = await storage.getStaffByRole(role);
+      res.json(staff);
+    } catch (error) {
+      console.error("Error fetching staff by role:", error);
+      res.status(500).json({ message: "Failed to fetch staff" });
     }
   });
 
