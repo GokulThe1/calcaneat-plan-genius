@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { useAuth } from '@/hooks/useAuth';
-import type { Report } from '@shared/schema';
+import type { Report, Address } from '@shared/schema';
 import { Header } from '@/components/Header';
 import { Footer } from '@/components/Footer';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -10,14 +10,20 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { FileText, Utensils, User, Download, Calendar } from 'lucide-react';
+import { Badge } from '@/components/ui/badge';
+import { FileText, Utensils, User, Download, Calendar, MapPin, Plus, Loader2, Sunrise, Sun, Moon } from 'lucide-react';
 
 export default function Profile() {
   const { user } = useAuth();
   const [activeTab, setActiveTab] = useState('reports');
 
-  const { data: reports = [] } = useQuery<Report[]>({
+  const { data: reports = [], isLoading: isReportsLoading } = useQuery<Report[]>({
     queryKey: ['/api/user/reports'],
+    enabled: !!user,
+  });
+
+  const { data: addresses = [], isLoading: isAddressesLoading } = useQuery<Address[]>({
+    queryKey: ['/api/user/addresses'],
     enabled: !!user,
   });
 
@@ -26,21 +32,21 @@ export default function Profile() {
       id: '1',
       title: 'Lipid Profile',
       date: '2025-10-15',
-      status: 'Normal Range ✅',
+      status: 'Normal Range',
       fileUrl: '#',
     },
     {
       id: '2',
       title: 'Complete Blood Count',
       date: '2025-10-15',
-      status: 'Normal Range ✅',
+      status: 'Normal Range',
       fileUrl: '#',
     },
     {
       id: '3',
       title: 'Physician Notes',
       date: '2025-10-16',
-      status: 'Diet Plan Feasible – Proceed to Nutrition Stage',
+      status: 'Diet Plan Feasible - Proceed to Nutrition Stage',
       fileUrl: '#',
     },
   ];
@@ -110,7 +116,11 @@ export default function Profile() {
                     <CardTitle>Lab Reports & Medical Notes</CardTitle>
                   </CardHeader>
                   <CardContent className="space-y-4">
-                    {reports && reports.length > 0 ? (
+                    {isReportsLoading ? (
+                      <div className="flex justify-center py-12">
+                        <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+                      </div>
+                    ) : reports.length > 0 ? (
                       reports.map((report) => (
                         <div
                           key={report.id}
@@ -273,6 +283,94 @@ export default function Profile() {
                         Cancel
                       </Button>
                     </div>
+                  </CardContent>
+                </Card>
+
+                <Card>
+                  <CardHeader>
+                    <div className="flex items-center justify-between">
+                      <CardTitle>Delivery Addresses</CardTitle>
+                      <Button size="sm" data-testid="button-add-address">
+                        <Plus className="h-4 w-4 mr-2" />
+                        Add Address
+                      </Button>
+                    </div>
+                  </CardHeader>
+                  <CardContent className="space-y-4">
+                    {isAddressesLoading ? (
+                      <div className="flex justify-center py-8">
+                        <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+                      </div>
+                    ) : addresses.length > 0 ? (
+                      addresses.map((address) => (
+                        <div
+                          key={address.id}
+                          className="p-4 border rounded-lg hover-elevate"
+                          data-testid={`address-${address.id}`}
+                        >
+                          <div className="flex items-start justify-between">
+                            <div className="flex items-start gap-3 flex-1">
+                              <div className="h-10 w-10 rounded-lg bg-primary/10 flex items-center justify-center mt-1">
+                                <MapPin className="h-5 w-5 text-primary" />
+                              </div>
+                              <div className="flex-1 space-y-2">
+                                <div className="flex items-center gap-2">
+                                  {address.label && (
+                                    <Badge variant="outline" className="text-xs">
+                                      {address.label}
+                                    </Badge>
+                                  )}
+                                  {address.isDefault && (
+                                    <Badge variant="default" className="text-xs">
+                                      Default
+                                    </Badge>
+                                  )}
+                                </div>
+                                <p className="font-medium">{address.line1}</p>
+                                {address.line2 && <p className="text-sm text-muted-foreground">{address.line2}</p>}
+                                <p className="text-sm text-muted-foreground">
+                                  {address.city}, {address.state} - {address.pincode}
+                                </p>
+                                <div className="flex gap-3 text-xs text-muted-foreground">
+                                  {address.breakfast && (
+                                    <span className="flex items-center gap-1">
+                                      <Sunrise className="h-3 w-3" />
+                                      Breakfast
+                                    </span>
+                                  )}
+                                  {address.lunch && (
+                                    <span className="flex items-center gap-1">
+                                      <Sun className="h-3 w-3" />
+                                      Lunch
+                                    </span>
+                                  )}
+                                  {address.dinner && (
+                                    <span className="flex items-center gap-1">
+                                      <Moon className="h-3 w-3" />
+                                      Dinner
+                                    </span>
+                                  )}
+                                </div>
+                              </div>
+                            </div>
+                            <div className="flex gap-2">
+                              <Button variant="outline" size="sm" data-testid={`button-edit-address-${address.id}`}>
+                                Edit
+                              </Button>
+                              <Button variant="outline" size="sm" data-testid={`button-delete-address-${address.id}`}>
+                                Delete
+                              </Button>
+                            </div>
+                          </div>
+                        </div>
+                      ))
+                    ) : (
+                      <div className="text-center py-12 text-muted-foreground">
+                        <MapPin className="h-12 w-12 mx-auto mb-3 opacity-50" />
+                        <p>No delivery addresses saved</p>
+                        <p className="text-sm">Add an address to start receiving meal deliveries</p>
+                      </div>
+                    )}
                   </CardContent>
                 </Card>
               </TabsContent>
