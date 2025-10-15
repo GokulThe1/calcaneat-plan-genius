@@ -409,6 +409,24 @@ export async function registerRoutes(app: Express): Promise<Server> {
         status: 'pending',
         paymentMethod: 'dummy',
       });
+
+      // Create plan with pricing breakdown
+      const PLAN_PRICES: Record<string, number> = {
+        'clinical': 9999,
+        'ai': 5999,
+      };
+      const CONSULTATION_FEE = 1999;
+      const planPrice = PLAN_PRICES[data.planType.toLowerCase()] || 9999;
+      
+      await storage.createPlan({
+        userId: user.id,
+        type: data.planType,
+        listPrice: planPrice.toString(),
+        consultationFeeCredited: CONSULTATION_FEE.toString(),
+        finalPayable: (planPrice - CONSULTATION_FEE).toString(),
+        isActive: false, // Will be activated after payment
+        durationDays: 30,
+      });
       
       // Initialize milestones
       const milestoneNames = [

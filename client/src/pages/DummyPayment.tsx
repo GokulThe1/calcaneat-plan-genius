@@ -1,14 +1,21 @@
 import { useState } from 'react';
 import { useLocation } from 'wouter';
+import { useQuery } from '@tanstack/react-query';
 import { Header } from '@/components/Header';
 import { Footer } from '@/components/Footer';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { CreditCard, Lock, CheckCircle2 } from 'lucide-react';
+import { CreditCard, Lock, CheckCircle2, Loader2 } from 'lucide-react';
 
-const CONSULTATION_FEE = 1999;
+type Plan = {
+  id: string;
+  listPrice: string;
+  consultationFeeCredited: string;
+  finalPayable: string;
+  type: string;
+};
 
 export default function DummyPayment() {
   const [, navigate] = useLocation();
@@ -19,6 +26,11 @@ export default function DummyPayment() {
     number: '',
     expiry: '',
     cvv: '',
+  });
+
+  // Fetch user's active plan
+  const { data: plan, isLoading: isPlanLoading } = useQuery<Plan>({
+    queryKey: ['/api/user/plan'],
   });
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -190,7 +202,7 @@ export default function DummyPayment() {
                       type="submit"
                       size="lg"
                       className="w-full"
-                      disabled={isProcessing}
+                      disabled={isProcessing || isPlanLoading || !plan}
                       data-testid="button-pay-now"
                     >
                       {isProcessing ? (
@@ -198,8 +210,10 @@ export default function DummyPayment() {
                           <div className="animate-spin h-4 w-4 border-2 border-white border-t-transparent rounded-full" />
                           Processing...
                         </span>
+                      ) : plan ? (
+                        `Pay ₹${parseFloat(plan.finalPayable).toLocaleString('en-IN')}`
                       ) : (
-                        `Pay ₹${CONSULTATION_FEE}`
+                        'Loading...'
                       )}
                     </Button>
                   </form>
@@ -258,13 +272,35 @@ export default function DummyPayment() {
                     )}
                   </div>
 
-                  <div className="border-t pt-4">
-                    <div className="flex justify-between items-center">
-                      <span className="font-semibold text-lg">Total</span>
-                      <span className="font-mono text-2xl font-bold" data-testid="text-total-amount">
-                        ₹{CONSULTATION_FEE}
-                      </span>
-                    </div>
+                  <div className="border-t pt-4 space-y-3">
+                    {plan ? (
+                      <>
+                        <div className="flex justify-between text-sm">
+                          <span className="text-muted-foreground">Plan Price</span>
+                          <span className="font-mono font-medium" data-testid="text-plan-price">
+                            ₹{parseFloat(plan.listPrice).toLocaleString('en-IN')}
+                          </span>
+                        </div>
+                        <div className="flex justify-between text-sm">
+                          <span className="text-emerald-600">Consultation Credit</span>
+                          <span className="font-mono font-medium text-emerald-600" data-testid="text-consultation-credit">
+                            -₹{parseFloat(plan.consultationFeeCredited).toLocaleString('en-IN')}
+                          </span>
+                        </div>
+                        <div className="border-t pt-3">
+                          <div className="flex justify-between items-center">
+                            <span className="font-semibold text-lg">Final Payable</span>
+                            <span className="font-mono text-2xl font-bold" data-testid="text-final-payable">
+                              ₹{parseFloat(plan.finalPayable).toLocaleString('en-IN')}
+                            </span>
+                          </div>
+                        </div>
+                      </>
+                    ) : (
+                      <div className="flex justify-center py-4">
+                        <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+                      </div>
+                    )}
                   </div>
                 </CardContent>
               </Card>
