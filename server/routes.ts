@@ -754,6 +754,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Get all documents for a user (admin view)
+  app.get('/api/admin/documents/:userId', isAuthenticated, isAdmin, async (req: any, res) => {
+    try {
+      const documents = await storage.getUserDocuments(req.params.userId);
+      res.json(documents);
+    } catch (error) {
+      console.error("Error fetching documents:", error);
+      res.status(500).json({ message: "Failed to fetch documents" });
+    }
+  });
+
   // Get documents by stage and user (admin view)
   app.get('/api/admin/documents/:userId/:stage', isAuthenticated, isAdmin, async (req: any, res) => {
     try {
